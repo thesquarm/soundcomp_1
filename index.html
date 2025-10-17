@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>sound_comp</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+  <script type="importmap">
+{
+  "imports": {
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.25.0"
+  }
+}
+</script>
+  <style>
+    @keyframes gradient {
+      0% { background-color: #f3f4f6; } /* gray-100 */
+      50% { background-color: #e5e7eb; } /* gray-200 */
+      100% { background-color: #f3f4f6; } /* gray-100 */
+    }
+    body {
+      background-color: #f3f4f6;
+      animation: gradient 15s ease infinite;
+      font-family: "Courier New", Courier, monospace;
+    }
+    /* Custom Slider Styles */
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      background: transparent;
+      cursor: pointer;
+      width: 100%;
+    }
+    input[type="range"]:disabled {
+      cursor: not-allowed;
+      opacity: 0.5;
+    }
+    /* Thumb */
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      height: 24px;
+      width: 24px;
+      background-color: #000;
+      border-radius: 50%;
+      border: 3px solid white;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+      margin-top: -9px; /* (track height - thumb height) / 2 */
+      transition: transform 0.1s ease-in-out;
+    }
+    input[type="range"]:active::-webkit-slider-thumb {
+      transform: scale(1.15);
+    }
+    input[type="range"]::-moz-range-thumb {
+      height: 24px;
+      width: 24px;
+      background-color: #000;
+      border-radius: 50%;
+      border: 3px solid white;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+      border: none; /* FF adds its own border */
+    }
+    /* Track */
+    input[type="range"]::-webkit-slider-runnable-track {
+      background: var(--slider-bg);
+      height: 6px;
+      border-radius: 6px;
+    }
+    input[type="range"]::-moz-range-track {
+      background: var(--slider-bg);
+      height: 6px;
+      border-radius: 6px;
+    }
+    /* Animation for new pads */
+    @keyframes fadeInScaleUp {
+      from {
+        opacity: 0;
+        transform: scale(0.95);
+      }
+      to {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+    .sound-pad-enter {
+      animation: fadeInScaleUp 0.4s ease-out forwards;
+    }
+  </style>
+</head>
+  <body class="bg-white text-black antialiased">
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>

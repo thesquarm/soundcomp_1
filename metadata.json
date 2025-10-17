@@ -1,0 +1,7 @@
+{
+  "name": "soundcomp",
+  "description": "An app that lets you record 6 different sounds, then mix, slow down, filter, reverse or speed up the sample playback to create your own soundscape composition.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
