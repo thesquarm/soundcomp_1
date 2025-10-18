@@ -4,6 +4,7 @@ import { useRecorder } from '../hooks/useRecorder';
 import { PlayIcon, PauseIcon, RecordIcon, StopIcon, TrashIcon, DownloadIcon, LoopIcon, UploadIcon, RecycleIcon } from './Icons';
 import { VisualizerCanvas } from './VisualizerCanvas';
 import { StaticWaveform } from './StaticWaveform';
+import { RangeSlider } from './RangeSlider';
 import { blobToAudioBuffer, reverseAudioBuffer, audioBufferToWav } from '../utils/audio';
 
 interface SoundPadProps {
@@ -15,13 +16,15 @@ interface SoundPadProps {
   padColor: string;
 }
 
+const FADE_TIME = 0.01; // 10ms
+
 const SoundPad: React.FC<SoundPadProps> = ({ padState, updatePadState, getAudioContext, impulseResponseBuffer, mixDestination, padColor }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { isRecording: isRecorderActive, startRecording, stopRecording, analyserNode: recorderAnalyserNode } = useRecorder(getAudioContext);
   
   const audioBufferRef = useRef<{ original: AudioBuffer | null, reversed: AudioBuffer | null }>({ original: null, reversed: null });
   const sourceNodeRef = useRef<AudioBufferSourceNode | null>(null);
-  const playbackStartTimeRef = useRef<number>(0);
+  const stopTimerRef = useRef<number | null>(null);
 
   const [playbackAnalyserNode, setPlaybackAnalyserNode] = useState<AnalyserNode | null>(null);
   
@@ -35,6 +38,15 @@ const SoundPad: React.FC<SoundPadProps> = ({ padState, updatePadState, getAudioC
     lowCutFilter?: BiquadFilterNode;
     highCutFilter?: BiquadFilterNode;
   }>({});
+  
+  // Cleanup stop timer on unmount
+  useEffect(() => {
+    return () => {
+      if (stopTimerRef.current) {
+        clearTimeout(stopTimerRef.current);
+      }
+    };
+  }, []);
 
   const setupAudioGraph = useCallback(() => {
     if (Object.keys(audioNodesRef.current).length > 0) return;
@@ -85,7 +97,6 @@ const SoundPad: React.FC<SoundPadProps> = ({ padState, updatePadState, getAudioC
     }
   }, [getAudioContext, impulseResponseBuffer]);
   
-  // Effect to start recording when state is updated
   useEffect(() => {
     if (padState.isRecording && !isRecorderActive) {
       startRecording();
@@ -122,47 +133,50 @@ const SoundPad: React.FC<SoundPadProps> = ({ padState, updatePadState, getAudioC
     
     const audioContext = getAudioContext();
     const existingNode = sourceNodeRef.current;
+    const masterOutNode = audioNodesRef.current.masterOut;
 
     // --- Stop Logic ---
-    // Stop if not playing or if audio is not ready
     if (!padState.isPlaying || !isReady) {
       if (existingNode) {
-        existingNode.onended = null;
-        try { existingNode.stop(); } catch(e) { /* ignore if already stopped */ }
-        existingNode.disconnect();
-        sourceNodeRef.current = null;
-        playbackStartTimeRef.current = 0;
+        if (masterOutNode) {
+          masterOutNode.gain.cancelScheduledValues(audioContext.currentTime);
+          masterOutNode.gain.setValueAtTime(masterOutNode.gain.value, audioContext.currentTime);
+          masterOutNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + FADE_TIME);
+          
+          if (stopTimerRef.current) clearTimeout(stopTimerRef.current);
+          stopTimerRef.current = window.setTimeout(() => {
+              existingNode.onended = null;
+              try { existingNode.stop(); } catch(e) { /* ignore */ }
+              existingNode.disconnect();
+              if (sourceNodeRef.current === existingNode) {
+                  sourceNodeRef.current = null;
+              }
+              // Reset gain after stopping
+              masterOutNode.gain.setValueAtTime(1, audioContext.currentTime);
+          }, FADE_TIME * 1000 + 50); // Give a little buffer for the fade to complete
+        } else {
+            existingNode.onended = null;
+            try { existingNode.stop(); } catch(e) { /* ignore */ }
+            existingNode.disconnect();
+            sourceNodeRef.current = null;
+        }
       }
       return;
     }
 
-    // --- Start or Update Logic ---
-    let startOffset = 0;
-
-    // If a node exists, we're updating it (e.g., reversing)
+    // --- Start Logic ---
+    if (stopTimerRef.current) {
+        clearTimeout(stopTimerRef.current);
+        stopTimerRef.current = null;
+    }
+    
+    // Clean up old node if it exists (e.g., from reversing while playing)
     if (existingNode) {
-      const bufferDuration = audioBufferRef.current.original!.duration;
-      const elapsedTime = audioContext.currentTime - playbackStartTimeRef.current;
-      let currentPosition = elapsedTime * existingNode.playbackRate.value;
-
-      if (existingNode.loop) {
-        currentPosition %= bufferDuration;
-      } else if (currentPosition >= bufferDuration) {
-        return; // Already finished playing
-      }
-
-      startOffset = bufferDuration - currentPosition;
-      if (startOffset < 0 || startOffset >= bufferDuration) {
-        startOffset = 0;
-      }
-
-      // Clean up old node
       existingNode.onended = null;
-      try { existingNode.stop(); } catch(e) { /* ignore */ }
+      try { existingNode.stop(0); } catch(e) {/* ignore */}
       existingNode.disconnect();
     }
     
-    // Create and configure a new node
     const sourceNode = audioContext.createBufferSource();
     sourceNodeRef.current = sourceNode;
 
@@ -174,8 +188,13 @@ const SoundPad: React.FC<SoundPadProps> = ({ padState, updatePadState, getAudioC
 
     sourceNode.buffer = bufferToPlay;
     sourceNode.playbackRate.value = padState.playbackRate;
-    sourceNode.loop = padState.isLooping;
-
+    
+    if (masterOutNode) {
+        masterOutNode.gain.cancelScheduledValues(audioContext.currentTime);
+        masterOutNode.gain.setValueAtTime(0, audioContext.currentTime);
+        masterOutNode.gain.linearRampToValueAtTime(1, audioContext.currentTime + FADE_TIME);
+    }
+    
     sourceNode.connect(audioNodesRef.current.analyser!);
 
     sourceNode.onended = () => {
@@ -184,9 +203,20 @@ const SoundPad: React.FC<SoundPadProps> = ({ padState, updatePadState, getAudioC
       }
     };
     
+    const bufferDuration = bufferToPlay.duration;
+    const offset = padState.start * bufferDuration;
+    const end = padState.end * bufferDuration;
+
+    if (padState.isLooping) {
+        sourceNode.loop = true;
+        sourceNode.loopStart = offset;
+        sourceNode.loopEnd = end;
+        sourceNode.start(0, offset);
+    } else {
+        const duration = end - offset;
+        sourceNode.start(0, offset, duration > 0 ? duration : 0);
+    }
     getAudioContext().resume();
-    sourceNode.start(0, startOffset);
-    playbackStartTimeRef.current = audioContext.currentTime - startOffset / sourceNode.playbackRate.value;
 
   }, [padState.isPlaying, padState.isReversed]);
 
@@ -194,11 +224,26 @@ const SoundPad: React.FC<SoundPadProps> = ({ padState, updatePadState, getAudioC
   useEffect(() => {
     const audioContext = getAudioContext();
     const nodes = audioNodesRef.current;
-    const { playbackRate, isLooping, reverbMix, volume, isFilterEnabled, lowCut, highCut } = padState;
+    const { playbackRate, isLooping, reverbMix, volume, isFilterEnabled, lowCut, highCut, start, end } = padState;
 
     if (sourceNodeRef.current) {
         sourceNodeRef.current.playbackRate.value = playbackRate;
-        sourceNodeRef.current.loop = isLooping;
+
+        // Update loop points in real-time
+        if (sourceNodeRef.current.buffer) {
+            const bufferDuration = sourceNodeRef.current.buffer.duration;
+            sourceNodeRef.current.loopStart = start * bufferDuration;
+            sourceNodeRef.current.loopEnd = end * bufferDuration;
+        }
+
+        if (sourceNodeRef.current.loop !== isLooping) {
+          // If looping changes while playing, we need to restart the node
+          // to apply the change correctly.
+          if (padState.isPlaying) {
+            updatePadState(padState.id, { isPlaying: false }); // Stop
+            setTimeout(() => updatePadState(padState.id, { isPlaying: true }), 50); // and restart
+          }
+        }
     }
     if (nodes.dryGain && nodes.wetGain && impulseResponseBuffer) {
         const mix = reverbMix;
@@ -230,7 +275,7 @@ const SoundPad: React.FC<SoundPadProps> = ({ padState, updatePadState, getAudioC
   const handleClear = useCallback(() => {
     if (sourceNodeRef.current) {
       sourceNodeRef.current.onended = null;
-      sourceNodeRef.current.stop();
+      try { sourceNodeRef.current.stop(); } catch(e) {/*ignore*/}
       sourceNodeRef.current.disconnect();
       sourceNodeRef.current = null;
     }
@@ -254,6 +299,8 @@ const SoundPad: React.FC<SoundPadProps> = ({ padState, updatePadState, getAudioC
       isFilterEnabled: false,
       lowCut: 20,
       highCut: 22050,
+      start: 0,
+      end: 1,
     });
   }, [padState.id, updatePadState]);
 
@@ -380,14 +427,22 @@ const SoundPad: React.FC<SoundPadProps> = ({ padState, updatePadState, getAudioC
       </header>
       
       <div
-          className="h-24 my-4 w-full flex items-center justify-center relative bg-black/5 rounded-md"
+          className="h-24 my-4 w-full flex items-center justify-center relative bg-black/5 rounded-md select-none"
       >
           {hasAudio && (
-            <StaticWaveform 
-              audioBuffer={audioBufferRef.current.original} 
-              color="#1f2937"
-              isReversed={padState.isReversed} 
-            />
+            <>
+              <StaticWaveform 
+                audioBuffer={audioBufferRef.current.original} 
+                color="#1f2937"
+                isReversed={padState.isReversed} 
+              />
+              <RangeSlider
+                min={0} max={1} step={0.001}
+                value={[padState.start, padState.end]}
+                onChange={([start, end]) => updatePadState(padState.id, { start, end })}
+                disabled={!hasAudio || isRecording}
+              />
+            </>
           )}
 
           {(padState.isPlaying || isRecording) && (
@@ -421,7 +476,7 @@ const SoundPad: React.FC<SoundPadProps> = ({ padState, updatePadState, getAudioC
               onClick={isRecording ? handleToggleRecord : handleTogglePlay}
               disabled={!hasAudio && !isRecording}
               aria-label={isRecording ? 'Stop Recording' : padState.isPlaying ? 'Pause' : 'Play'}
-              className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-14 h-14 bg-black/50 hover:bg-black/75 text-white rounded-full flex items-center justify-center transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black disabled:bg-gray-400/50 disabled:cursor-not-allowed"
+              className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-14 h-14 bg-black/50 hover:bg-black/75 text-white rounded-full flex items-center justify-center transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black disabled:bg-gray-400/50 disabled:cursor-not-allowed z-10"
             >
               {isRecording ? <StopIcon className="w-8 h-8" />
                 : padState.isPlaying ? <PauseIcon className="w-8 h-8" />
@@ -444,7 +499,6 @@ const SoundPad: React.FC<SoundPadProps> = ({ padState, updatePadState, getAudioC
                     onChange={(e) => updatePadState(padState.id, { playbackRate: parseFloat(e.target.value) })}
                     disabled={!hasAudio || isRecording}
                     className="w-full"
-                    // FIX: Cast style object to React.CSSProperties to allow for custom CSS properties.
                     style={{'--slider-bg': `linear-gradient(to right, #000 ${ratePercent}%, #e5e7eb ${ratePercent}%)`} as React.CSSProperties}
                 />
             </div>
@@ -459,7 +513,6 @@ const SoundPad: React.FC<SoundPadProps> = ({ padState, updatePadState, getAudioC
                     onChange={(e) => updatePadState(padState.id, { volume: parseFloat(e.target.value) })}
                     disabled={!hasAudio || isRecording}
                     className="w-full"
-                    // FIX: Cast style object to React.CSSProperties to allow for custom CSS properties.
                     style={{'--slider-bg': `linear-gradient(to right, #000 ${volumePercent}%, #e5e7eb ${volumePercent}%)`} as React.CSSProperties}
                 />
             </div>
@@ -474,7 +527,6 @@ const SoundPad: React.FC<SoundPadProps> = ({ padState, updatePadState, getAudioC
                     onChange={(e) => updatePadState(padState.id, { reverbMix: parseFloat(e.target.value) })}
                     disabled={!hasAudio || isRecording}
                     className="w-full"
-                    // FIX: Cast style object to React.CSSProperties to allow for custom CSS properties.
                     style={{'--slider-bg': `linear-gradient(to right, #000 ${reverbPercent}%, #e5e7eb ${reverbPercent}%)`} as React.CSSProperties}
                 />
             </div>
@@ -491,7 +543,6 @@ const SoundPad: React.FC<SoundPadProps> = ({ padState, updatePadState, getAudioC
                         onChange={(e) => updatePadState(padState.id, { lowCut: parseFloat(e.target.value) })}
                         disabled={!hasAudio || isRecording || !padState.isFilterEnabled}
                         className="w-full"
-                        // FIX: Cast style object to React.CSSProperties to allow for custom CSS properties.
                         style={{'--slider-bg': `linear-gradient(to right, #000 ${lowCutPercent}%, #e5e7eb ${lowCutPercent}%)`} as React.CSSProperties}
                     />
                 </div>
@@ -506,7 +557,6 @@ const SoundPad: React.FC<SoundPadProps> = ({ padState, updatePadState, getAudioC
                         onChange={(e) => updatePadState(padState.id, { highCut: parseFloat(e.target.value) })}
                         disabled={!hasAudio || isRecording || !padState.isFilterEnabled}
                         className="w-full"
-                        // FIX: Cast style object to React.CSSProperties to allow for custom CSS properties.
                         style={{'--slider-bg': `linear-gradient(to right, #000 ${highCutPercent}%, #e5e7eb ${highCutPercent}%)`} as React.CSSProperties}
                     />
                 </div>
@@ -538,7 +588,12 @@ const SoundPad: React.FC<SoundPadProps> = ({ padState, updatePadState, getAudioC
             </div>
         </div>
       </div>
-      <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="audio/*" className="hidden" />
+      <input 
+        type="file" 
+        ref={fileInputRef} 
+        onChange={handleFileChange} 
+        accept="audio/*,.wav,.mp3,.m4a,.ogg,.flac,.aac" 
+        className="hidden" />
     </div>
   );
 };

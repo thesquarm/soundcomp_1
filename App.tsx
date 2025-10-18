@@ -1,9 +1,10 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { PadState } from './types';
 import SoundPad from './components/SoundPad';
-import { PlayIcon, StopIcon, RecordIcon, AddIcon, SoundWaveIcon } from './components/Icons';
+import { PlayIcon, StopIcon, RecordIcon, AddIcon, SoundWaveIcon, DownloadIcon } from './components/Icons';
 import { createImpulseResponse, audioBufferToWav } from './utils/audio';
 import AdviceGenerator from './components/AdviceGenerator';
+import PerformanceSaveModal from './components/PerformanceSaveModal';
 
 const createPadState = (id: number): PadState => ({
   id,
@@ -20,11 +21,19 @@ const createPadState = (id: number): PadState => ({
   isFilterEnabled: false,
   lowCut: 20,
   highCut: 22050,
+  start: 0,
+  end: 1,
 });
 
 const initialPads: PadState[] = Array.from({ length: 2 }, (_, i) => createPadState(i));
 
 const PAD_COLORS = ['#B39EB5', '#B5B39E', '#91B39E', '#B5A29E', '#9EB5B3'];
+
+interface SavedPerformance {
+    blob: Blob;
+    name: string;
+    url: string;
+}
 
 const App: React.FC = () => {
   const [pads, setPads] = useState<PadState[]>(initialPads);
@@ -35,6 +44,11 @@ const App: React.FC = () => {
   const [mixDestination, setMixDestination] = useState<MediaStreamAudioDestinationNode | null>(null);
   const performanceRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedPerformanceChunksRef = useRef<Blob[]>([]);
+
+  const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
+  const [performanceToSave, setPerformanceToSave] = useState<{ blob: Blob, defaultName: string } | null>(null);
+  const [savedPerformances, setSavedPerformances] = useState<SavedPerformance[]>([]);
+
 
   const getAudioContext = useCallback((): AudioContext => {
     if (!audioContextRef.current) {
@@ -88,6 +102,19 @@ const App: React.FC = () => {
      setPads(pads.map(p => ({...p, isPlaying: false})));
   };
 
+  const handleModalClose = () => {
+    if (performanceToSave) {
+        const url = URL.createObjectURL(performanceToSave.blob);
+        setSavedPerformances(prev => [...prev, {
+            blob: performanceToSave.blob,
+            name: performanceToSave.defaultName,
+            url
+        }]);
+    }
+    setIsSaveModalOpen(false);
+    setPerformanceToSave(null);
+  };
+
   const handleTogglePerformanceRecord = () => {
       if (isRecordingPerformance) {
           performanceRecorderRef.current?.stop();
@@ -122,16 +149,12 @@ const App: React.FC = () => {
                 const arrayBuffer = await blob.arrayBuffer();
                 const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
                 const wavBlob = audioBufferToWav(audioBuffer);
-                const url = URL.createObjectURL(wavBlob);
-
-                const a = document.createElement('a');
-                a.style.display = 'none';
-                a.href = url;
-                a.download = `sound_comp_Performance.wav`;
-                document.body.appendChild(a);
-                a.click();
-                window.URL.revokeObjectURL(url);
-                document.body.removeChild(a);
+                
+                setPerformanceToSave({
+                    blob: wavBlob,
+                    defaultName: `performance_${new Date().toISOString()}.wav`
+                });
+                setIsSaveModalOpen(true);
               } catch (e) {
                 console.error("Error processing recorded performance:", e);
                 alert("Could not process the recorded audio. Please try again.");
@@ -150,16 +173,28 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen flex flex-col items-center p-4 font-mono">
       <header className="text-center my-8">
-        <h1 className="text-6xl font-light text-black tracking-tight flex items-center justify-center gap-3">
-          <SoundWaveIcon className="w-12 h-12" />
-          <span>sound_comp</span>
+        <h1 className="text-6xl font-light text-black tracking-tight">
+          sound_comp
         </h1>
-        <p className="text-gray-500 mt-2 text-xl font-sans">
-          A minimalist soundscape composer.
+        <p className="text-gray-500 mt-4 text-xl font-sans">
+          A minimalist soundscape composer
         </p>
+        <SoundWaveIcon className="w-12 h-12 mt-4 mx-auto text-gray-400" />
       </header>
 
       <AdviceGenerator />
+      
+      {performanceToSave && (
+        <PerformanceSaveModal 
+            isOpen={isSaveModalOpen}
+            performance={performanceToSave}
+            onClose={handleModalClose}
+            onSaveComplete={() => {
+                setIsSaveModalOpen(false);
+                setPerformanceToSave(null);
+            }}
+        />
+      )}
 
       <main className="w-full max-w-5xl">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
@@ -212,6 +247,27 @@ const App: React.FC = () => {
                 Stop All
             </button>
         </div>
+        
+        {savedPerformances.length > 0 && (
+            <div className="mt-10 w-full max-w-md mx-auto">
+                <h3 className="text-center text-lg font-bold mb-2">Unsaved Recordings</h3>
+                <ul className="bg-white/50 border border-gray-200 rounded-md p-2 space-y-2">
+                    {savedPerformances.map((perf, index) => (
+                        <li key={index} className="flex items-center justify-between p-2 bg-white rounded-md shadow-sm">
+                            <span className="text-sm font-mono truncate mr-2">{perf.name}</span>
+                            <a 
+                                href={perf.url} 
+                                download={perf.name}
+                                className="p-2 rounded-full hover:bg-gray-100 text-black transition-colors"
+                                title="Download"
+                            >
+                                <DownloadIcon className="w-5 h-5" />
+                            </a>
+                        </li>
+                    ))}
+                </ul>
+            </div>
+        )}
       </main>
       <footer className="text-center mt-12 text-sm text-black opacity-75">
         <p>Open Source App, by Philip and with Google AI Studio, part of sustain_sound by the TEAM project</p>

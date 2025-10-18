@@ -13,4 +13,6 @@ export interface PadState {
   isFilterEnabled: boolean;
   lowCut: number;
   highCut: number;
+  start: number; // Value from 0 to 1
+  end: number;   // Value from 0 to 1
 }
