@@ -27,6 +27,9 @@ const SoundPad: React.FC<SoundPadProps> = ({ padState, updatePadState, getAudioC
   const stopTimerRef = useRef<number | null>(null);
 
   const [playbackAnalyserNode, setPlaybackAnalyserNode] = useState<AnalyserNode | null>(null);
+  const [playbackProgress, setPlaybackProgress] = useState<number | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
+  const playbackStartRef = useRef<{ contextTime: number; mediaOffset: number; } | null>(null);
   
   const audioNodesRef = useRef<{
     analyser?: AnalyserNode;
@@ -44,6 +47,9 @@ const SoundPad: React.FC<SoundPadProps> = ({ padState, updatePadState, getAudioC
     return () => {
       if (stopTimerRef.current) {
         clearTimeout(stopTimerRef.current);
+      }
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
       }
     };
   }, []);
@@ -124,6 +130,50 @@ const SoundPad: React.FC<SoundPadProps> = ({ padState, updatePadState, getAudioC
   }, [padState.audioUrl, getAudioContext, setupAudioGraph]);
 
 
+  const updateCursor = useCallback(() => {
+    if (!padState.isPlaying || !sourceNodeRef.current?.buffer || !playbackStartRef.current) {
+        setPlaybackProgress(null);
+        animationFrameRef.current = null;
+        return;
+    }
+
+    const audioContext = getAudioContext();
+    const bufferDuration = sourceNodeRef.current.buffer.duration;
+    
+    const { contextTime: startTime, mediaOffset: startOffset } = playbackStartRef.current;
+    
+    const playbackRangeStart = padState.start * bufferDuration;
+    const playbackRangeEnd = padState.end * bufferDuration;
+    const playbackRangeDuration = playbackRangeEnd - playbackRangeStart;
+
+    if (playbackRangeDuration <= 0) {
+        setPlaybackProgress(null);
+        animationFrameRef.current = null;
+        return;
+    }
+    
+    const elapsedContextTime = audioContext.currentTime - startTime;
+    const elapsedMediaTime = elapsedContextTime * padState.playbackRate;
+
+    let currentBufferTime;
+    if (padState.isLooping) {
+        currentBufferTime = playbackRangeStart + (elapsedMediaTime % playbackRangeDuration);
+    } else {
+        currentBufferTime = startOffset + elapsedMediaTime;
+        if (currentBufferTime >= playbackRangeEnd) {
+             setPlaybackProgress(null);
+             animationFrameRef.current = null;
+             return;
+        }
+    }
+    
+    const progress = currentBufferTime / bufferDuration;
+    setPlaybackProgress(progress);
+    
+    animationFrameRef.current = requestAnimationFrame(updateCursor);
+}, [padState.isPlaying, padState.isLooping, padState.playbackRate, padState.start, padState.end, getAudioContext]);
+
+
   useEffect(() => {
     const isReady =
       padState.audioUrl &&
@@ -137,6 +187,13 @@ const SoundPad: React.FC<SoundPadProps> = ({ padState, updatePadState, getAudioC
 
     // --- Stop Logic ---
     if (!padState.isPlaying || !isReady) {
+      if (animationFrameRef.current) {
+          cancelAnimationFrame(animationFrameRef.current);
+          animationFrameRef.current = null;
+      }
+      setPlaybackProgress(null);
+      playbackStartRef.current = null;
+      
       if (existingNode) {
         if (masterOutNode) {
           masterOutNode.gain.cancelScheduledValues(audioContext.currentTime);
@@ -151,9 +208,8 @@ const SoundPad: React.FC<SoundPadProps> = ({ padState, updatePadState, getAudioC
               if (sourceNodeRef.current === existingNode) {
                   sourceNodeRef.current = null;
               }
-              // Reset gain after stopping
               masterOutNode.gain.setValueAtTime(1, audioContext.currentTime);
-          }, FADE_TIME * 1000 + 50); // Give a little buffer for the fade to complete
+          }, FADE_TIME * 1000 + 50);
         } else {
             existingNode.onended = null;
             try { existingNode.stop(); } catch(e) { /* ignore */ }
@@ -170,7 +226,6 @@ const SoundPad: React.FC<SoundPadProps> = ({ padState, updatePadState, getAudioC
         stopTimerRef.current = null;
     }
     
-    // Clean up old node if it exists (e.g., from reversing while playing)
     if (existingNode) {
       existingNode.onended = null;
       try { existingNode.stop(0); } catch(e) {/* ignore */}
@@ -216,9 +271,14 @@ const SoundPad: React.FC<SoundPadProps> = ({ padState, updatePadState, getAudioC
         const duration = end - offset;
         sourceNode.start(0, offset, duration > 0 ? duration : 0);
     }
+    
+    playbackStartRef.current = { contextTime: audioContext.currentTime, mediaOffset: offset };
+    if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+    animationFrameRef.current = requestAnimationFrame(updateCursor);
+
     getAudioContext().resume();
 
-  }, [padState.isPlaying, padState.isReversed]);
+  }, [padState.isPlaying, padState.isReversed, updateCursor]);
 
   // Update live parameters
   useEffect(() => {
@@ -229,7 +289,6 @@ const SoundPad: React.FC<SoundPadProps> = ({ padState, updatePadState, getAudioC
     if (sourceNodeRef.current) {
         sourceNodeRef.current.playbackRate.value = playbackRate;
 
-        // Update loop points in real-time
         if (sourceNodeRef.current.buffer) {
             const bufferDuration = sourceNodeRef.current.buffer.duration;
             sourceNodeRef.current.loopStart = start * bufferDuration;
@@ -237,11 +296,9 @@ const SoundPad: React.FC<SoundPadProps> = ({ padState, updatePadState, getAudioC
         }
 
         if (sourceNodeRef.current.loop !== isLooping) {
-          // If looping changes while playing, we need to restart the node
-          // to apply the change correctly.
           if (padState.isPlaying) {
-            updatePadState(padState.id, { isPlaying: false }); // Stop
-            setTimeout(() => updatePadState(padState.id, { isPlaying: true }), 50); // and restart
+            updatePadState(padState.id, { isPlaying: false }); 
+            setTimeout(() => updatePadState(padState.id, { isPlaying: true }), 50);
           }
         }
     }
@@ -259,7 +316,7 @@ const SoundPad: React.FC<SoundPadProps> = ({ padState, updatePadState, getAudioC
         nodes.lowCutFilter.frequency.setTargetAtTime(lowCutFreq, audioContext.currentTime, 0.01);
         nodes.highCutFilter.frequency.setTargetAtTime(highCutFreq, audioContext.currentTime, 0.01);
     }
-  }, [padState, impulseResponseBuffer, getAudioContext]);
+  }, [padState, impulseResponseBuffer, getAudioContext, updatePadState]);
   
   // Connect/disconnect from the performance recording destination
   useEffect(() => {
@@ -402,26 +459,41 @@ const SoundPad: React.FC<SoundPadProps> = ({ padState, updatePadState, getAudioC
       className={`p-4 transition-all duration-300 flex flex-col justify-between border border-black/10 shadow-lg rounded-md sound-pad-enter ${isRecording ? 'ring-2 ring-red-500 ring-offset-2' : padState.isPlaying ? 'ring-2 ring-black ring-offset-2' : ''}`}
     >
       <header>
-        <div className="flex justify-between items-center mb-2">
+        <div className="flex justify-between items-center mb-2 gap-2">
           <input
             type="text"
             value={padState.name}
             onChange={(e) => updatePadState(padState.id, { name: e.target.value })}
-            className="font-bold text-base uppercase text-black bg-transparent border-none p-0 focus:ring-0 w-full"
+            className="font-bold text-base uppercase text-black bg-transparent border-none p-0 focus:ring-0 w-full flex-grow min-w-0"
             disabled={isRecording}
           />
-           <div className="flex items-center gap-1">
-             {hasAudio && !isRecording && (
-                <>
-                  <button onClick={handleExport} title="Download" className="p-1 rounded-full hover:bg-black/10 text-gray-600 hover:text-black transition-colors disabled:text-gray-300 disabled:cursor-not-allowed">
-                      <DownloadIcon className="w-4 h-4"/>
-                  </button>
-                  <button onClick={handleClear} title="Clear Pad" className="text-gray-600 hover:text-black transition-colors p-1 flex-shrink-0">
-                    <TrashIcon className="w-4 h-4" />
-                  </button>
-                </>
-             )}
-           </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {(hasAudio || isRecording) && (
+              <button
+                onClick={isRecording ? handleToggleRecord : handleTogglePlay}
+                disabled={!hasAudio && !isRecording}
+                aria-label={isRecording ? 'Stop Recording' : padState.isPlaying ? 'Pause' : 'Play'}
+                className="w-10 h-10 bg-black/75 hover:bg-black text-white rounded-full flex items-center justify-center transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black disabled:bg-gray-400 disabled:cursor-not-allowed"
+              >
+                {isRecording ? <StopIcon className="w-6 h-6" />
+                  : padState.isPlaying ? <PauseIcon className="w-6 h-6" />
+                  : <PlayIcon className="w-6 h-6" />
+                }
+              </button>
+            )}
+            <div className="flex items-center gap-1">
+              {hasAudio && !isRecording && (
+                  <>
+                    <button onClick={handleExport} title="Download" className="p-1 rounded-full hover:bg-black/10 text-gray-600 hover:text-black transition-colors disabled:text-gray-300 disabled:cursor-not-allowed">
+                        <DownloadIcon className="w-4 h-4"/>
+                    </button>
+                    <button onClick={handleClear} title="Clear Pad" className="text-gray-600 hover:text-black transition-colors p-1 flex-shrink-0">
+                      <TrashIcon className="w-4 h-4" />
+                    </button>
+                  </>
+              )}
+            </div>
+          </div>
         </div>
         {isRecording && <p className="text-base text-red-500 text-right">Recording...</p>}
       </header>
@@ -442,6 +514,15 @@ const SoundPad: React.FC<SoundPadProps> = ({ padState, updatePadState, getAudioC
                 onChange={([start, end]) => updatePadState(padState.id, { start, end })}
                 disabled={!hasAudio || isRecording}
               />
+               {playbackProgress !== null && (
+                <div 
+                    className="absolute top-0 w-0.5 h-full bg-red-500/80 pointer-events-none"
+                    style={{ 
+                        left: `${playbackProgress * 100}%`,
+                        zIndex: 4 
+                    }}
+                />
+               )}
             </>
           )}
 
@@ -469,20 +550,6 @@ const SoundPad: React.FC<SoundPadProps> = ({ padState, updatePadState, getAudioC
                     <span className="text-sm font-semibold">UPLOAD</span>
                 </button>
             </div>
-          )}
-
-          {(hasAudio || isRecording) && (
-            <button
-              onClick={isRecording ? handleToggleRecord : handleTogglePlay}
-              disabled={!hasAudio && !isRecording}
-              aria-label={isRecording ? 'Stop Recording' : padState.isPlaying ? 'Pause' : 'Play'}
-              className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-14 h-14 bg-black/50 hover:bg-black/75 text-white rounded-full flex items-center justify-center transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black disabled:bg-gray-400/50 disabled:cursor-not-allowed z-10"
-            >
-              {isRecording ? <StopIcon className="w-8 h-8" />
-                : padState.isPlaying ? <PauseIcon className="w-8 h-8" />
-                : <PlayIcon className="w-8 h-8" />
-              }
-            </button>
           )}
       </div>
 

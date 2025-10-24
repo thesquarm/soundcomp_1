@@ -40,36 +40,37 @@ export const RangeSlider: React.FC<RangeSliderProps> = ({ min, max, step, value,
         updateValueFromPosition(e.clientX);
     }, [updateValueFromPosition]);
 
+    const handleTouchMove = useCallback((e: TouchEvent) => {
+        e.preventDefault();
+        updateValueFromPosition(e.touches[0].clientX);
+    }, [updateValueFromPosition]);
+
     const handleMouseUp = useCallback(() => {
         draggingThumbRef.current = null;
         window.removeEventListener('mousemove', handleMouseMove);
         window.removeEventListener('mouseup', handleMouseUp);
     }, [handleMouseMove]);
 
-    const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
-        if (disabled || !sliderRef.current) return;
-        
-        const rect = sliderRef.current.getBoundingClientRect();
-        const clickPos = (e.clientX - rect.left) / rect.width;
-        
-        const minValPos = (minVal - min) / range;
-        const maxValPos = (maxVal - min) / range;
+    const handleTouchEnd = useCallback(() => {
+        draggingThumbRef.current = null;
+        window.removeEventListener('touchmove', handleTouchMove);
+        window.removeEventListener('touchend', handleTouchEnd);
+    }, [handleTouchMove]);
 
-        const distToMin = Math.abs(clickPos - minValPos);
-        const distToMax = Math.abs(clickPos - maxValPos);
-
-        // Determine which thumb is closer to the click
-        if (distToMin < distToMax) {
-            draggingThumbRef.current = 'min';
-        } else {
-            draggingThumbRef.current = 'max';
-        }
-        
-        // Immediately update position on click
-        updateValueFromPosition(e.clientX);
-        
+    const handleThumbMouseDown = (e: React.MouseEvent<HTMLDivElement>, thumb: 'min' | 'max') => {
+        e.stopPropagation();
+        if (disabled) return;
+        draggingThumbRef.current = thumb;
         window.addEventListener('mousemove', handleMouseMove);
         window.addEventListener('mouseup', handleMouseUp);
+    };
+
+    const handleThumbTouchStart = (e: React.TouchEvent<HTMLDivElement>, thumb: 'min' | 'max') => {
+        e.stopPropagation();
+        if (disabled) return;
+        draggingThumbRef.current = thumb;
+        window.addEventListener('touchmove', handleTouchMove, { passive: false });
+        window.addEventListener('touchend', handleTouchEnd);
     };
 
     const minPosPercent = (minVal / range) * 100;
@@ -78,9 +79,8 @@ export const RangeSlider: React.FC<RangeSliderProps> = ({ min, max, step, value,
     return (
         <div 
             ref={sliderRef}
-            onMouseDown={handleMouseDown}
-            className={`absolute top-0 left-0 w-full h-full flex items-center group ${disabled ? 'cursor-not-allowed' : 'cursor-pointer'}`}
-            style={{ zIndex: 5 }} // Ensure it's interactive
+            className={`absolute top-0 left-0 w-full h-full flex items-center group ${disabled ? 'cursor-not-allowed' : ''}`}
+            style={{ zIndex: 5 }}
         >
             {/* Track */}
             <div className="absolute w-full h-full top-0 left-0">
@@ -91,16 +91,20 @@ export const RangeSlider: React.FC<RangeSliderProps> = ({ min, max, step, value,
 
             {/* Thumbs */}
             <div 
-                className="absolute top-0 w-2 h-full bg-black cursor-ew-resize pointer-events-none opacity-60 group-hover:opacity-100 transition-opacity flex items-center justify-center" 
+                onMouseDown={(e) => handleThumbMouseDown(e, 'min')}
+                onTouchStart={(e) => handleThumbTouchStart(e, 'min')}
+                className="absolute top-0 w-6 h-full bg-black/70 cursor-ew-resize group-hover:bg-black/80 transition-colors flex items-center justify-center rounded-sm"
                 style={{ left: `${minPosPercent}%`, transform: 'translateX(-50%)' }}
             >
-                <div className="w-0.5 h-1/2 bg-white/50 rounded-full"></div>
+                <div className="w-1 h-1/2 bg-white/75 rounded-full"></div>
             </div>
             <div 
-                className="absolute top-0 w-2 h-full bg-black cursor-ew-resize pointer-events-none opacity-60 group-hover:opacity-100 transition-opacity flex items-center justify-center" 
+                onMouseDown={(e) => handleThumbMouseDown(e, 'max')}
+                onTouchStart={(e) => handleThumbTouchStart(e, 'max')}
+                className="absolute top-0 w-6 h-full bg-black/70 cursor-ew-resize group-hover:bg-black/80 transition-colors flex items-center justify-center rounded-sm"
                 style={{ left: `${maxPosPercent}%`, transform: 'translateX(-50%)' }}
             >
-                <div className="w-0.5 h-1/2 bg-white/50 rounded-full"></div>
+                <div className="w-1 h-1/2 bg-white/75 rounded-full"></div>
             </div>
         </div>
     );

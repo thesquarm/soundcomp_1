@@ -12,13 +12,13 @@ The application is currently a feature-rich Minimum Viable Product (MVP). The co
 
 ### What Works:
 
-- **Sound Pads:** The interface is built around a dynamic grid of up to 6 sound pads.
+- **Sound Pads:** The interface is built around a dynamic grid of up to 6 sound pads with a refined UI for easier access to controls.
 - **Audio Input:**
     - Record audio directly from a microphone.
     - Upload local audio files (e.g., WAV, MP3, M4A, OGG).
 - **Playback Controls:**
     - Global "Play All" and "Stop All" controls.
-    - Individual play/pause controls on each pad.
+    - Individual play/pause controls on each pad, conveniently located in the header.
 - **Per-Pad Audio Manipulation:**
     - **Speed:** Adjust playback rate from 0.5x to 1.5x.
     - **Volume:** Control the volume of each pad.
@@ -26,7 +26,7 @@ The application is currently a feature-rich Minimum Viable Product (MVP). The co
     - **Reverse:** Instantly play any sample in reverse.
     - **Reverb:** A simple but effective reverb effect with a wet/dry mix control.
     - **Filter:** A switchable low-cut (high-pass) and high-cut (low-pass) filter.
-    - **Sample Trimming:** Adjust the start and end points of a sample using interactive markers on the waveform display. Loop points update in real-time.
+    - **Sample Trimming:** Adjust the start and end points of a sample using interactive, mobile-friendly markers on the waveform display. Loop points update in real-time.
 - **Performance Recording:**
     - Record a live performance of your composition.
     - After recording, a modal appears allowing you to name the file.
@@ -35,8 +35,15 @@ The application is currently a feature-rich Minimum Viable Product (MVP). The co
 - **Visual Feedback:**
     - A static waveform is rendered for every loaded sample.
     - A live frequency visualizer provides real-time feedback during recording and playback.
+    - A red playback cursor moves across each waveform to show the current playback position.
+    - A global, pulsing red bar at the top of the screen clearly indicates when a performance recording is active.
 - **AI-Powered Inspiration:**
     - An optional "Inspiration" feature, powered by the Gemini API, provides creative prompts to spark ideas for users.
+
+### Recent Improvements & Fixes:
+
+- **UI Refinements:** The layout of the sound pad has been improved, with the play/pause button moved to the header for easier access. The audio trimmer handles have been enlarged and refined for better usability, especially on touch devices.
+- **Recording Bug Fix:** Fixed a critical issue where clearing a pad during a recording would not stop the microphone capture, causing old audio to be included in subsequent recordings.
 
 ---
 
@@ -50,7 +57,7 @@ This roadmap outlines potential features and improvements for the future.
 - **Panning Control:** Add a stereo pan control to each pad.
 - **More Effects:** Introduce more audio effects like delay, distortion, or bit-crushing.
 - **Keyboard Shortcuts:** Allow triggering pads and controls via the computer keyboard for a more tactile experience.
-- **UI/UX Refinements:** Improve accessibility and refine the user interface based on feedback.
+- **UI/UX Refinements:** Continue improving accessibility and refining the user interface based on feedback.
 
 ### Mid-Term Goals
 

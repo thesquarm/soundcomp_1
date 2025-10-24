@@ -25,7 +25,7 @@ const createPadState = (id: number): PadState => ({
   end: 1,
 });
 
-const initialPads: PadState[] = Array.from({ length: 2 }, (_, i) => createPadState(i));
+const initialPads: PadState[] = Array.from({ length: 3 }, (_, i) => createPadState(i));
 
 const PAD_COLORS = ['#B39EB5', '#B5B39E', '#91B39E', '#B5A29E', '#9EB5B3'];
 
@@ -172,6 +172,9 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col items-center p-4 font-mono">
+      {isRecordingPerformance && (
+        <div className="fixed top-0 left-0 w-full h-2 bg-red-500 z-50 recording-indicator" role="status" aria-label="Recording in progress"></div>
+      )}
       <header className="text-center my-8">
         <h1 className="text-6xl font-light text-black tracking-tight">
           sound_comp
@@ -191,6 +194,7 @@ const App: React.FC = () => {
             onClose={handleModalClose}
             onSaveComplete={() => {
                 setIsSaveModalOpen(false);
+                // FIX: Corrected typo from setPerformanceTosave to setPerformanceToSave
                 setPerformanceToSave(null);
             }}
         />
@@ -270,7 +274,7 @@ const App: React.FC = () => {
         )}
       </main>
       <footer className="text-center mt-12 text-sm text-black opacity-75">
-        <p>Open Source App, by Philip and with Google AI Studio, part of sustain_sound by the TEAM project</p>
+        <p>App by Philip and Google AI Studio / Part of sustain_sound by the TEAM project / If you have any questions or feedback, please contact <a href="mailto:p.stade@mh-freiburg.de">Philip, p.stade@mh-freiburg.de</a> </p>
       </footer>
     </div>
   );

@@ -89,6 +89,14 @@
     .sound-pad-enter {
       animation: fadeInScaleUp 0.4s ease-out forwards;
     }
+    /* Animation for recording indicator */
+    @keyframes pulse-red {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+    .recording-indicator {
+      animation: pulse-red 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
   </style>
 </head>
   <body class="bg-white text-black antialiased">
