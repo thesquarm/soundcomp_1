@@ -1,3 +1,4 @@
+
 # Architectural Decisions
 
 This document outlines the key architectural decisions and technical choices made during the development of `sound_comp`.
@@ -50,15 +51,6 @@ The Web Audio API is the heart of `sound_comp`.
 
 - **Audio Data Handling:** All audio (recorded or uploaded) is decoded into an `AudioBuffer`.
   - *Why?* `AudioBuffer`s are highly optimized for playback and manipulation within the Web Audio API. This allows for features like seamless looping and efficient reversing, which is done by creating a new `AudioBuffer` with the sample data in reverse order. The final recorded performance is converted to a WAV file using a utility function for maximum compatibility.
-
-## Gemini API Integration
-
-- **Component:** `AdviceGenerator.tsx`.
-- **Functionality:** This component provides optional creative prompts to the user. It fetches a list of short, actionable ideas from the Gemini API.
-- **Implementation Details:**
-  - It uses the `@google/genai` library to communicate with the Gemini API.
-  - To ensure a reliable response format, the API call specifies `responseMimeType: "application/json"` and provides a `responseSchema` that defines the expected output (an array of strings). This offloads the structural formatting to the model.
-  - The API key is sourced from `process.env.API_KEY`, which is assumed to be provided by the execution environment (e.g., Google AI Studio).
 
 ## Component Structure
 

@@ -1,3 +1,4 @@
+
 # Project Roadmap: sound_comp
 
 ## Vision
@@ -37,8 +38,6 @@ The application is currently a feature-rich Minimum Viable Product (MVP). The co
     - A live frequency visualizer provides real-time feedback during recording and playback.
     - A red playback cursor moves across each waveform to show the current playback position.
     - A global, pulsing red bar at the top of the screen clearly indicates when a performance recording is active.
-- **AI-Powered Inspiration:**
-    - An optional "Inspiration" feature, powered by the Gemini API, provides creative prompts to spark ideas for users.
 
 ### Recent Improvements & Fixes:
 
@@ -65,7 +64,6 @@ This roadmap outlines potential features and improvements for the future.
 - **Parameter Automation:** Add the ability to record automation for parameters like volume, speed, and filter cutoff during performance recording.
 - **Advanced Sequencing:** Introduce a simple step-sequencer for triggering pads.
 - **Sharing Compositions:** Create a way to share a composition via a unique link (persisting project state in the URL or a small database).
-- **AI-Powered Sample Generation:** Explore using Gemini to generate short sound descriptions or even raw audio samples based on text prompts.
 
 ### Long-Term Vision (The Dream)
 

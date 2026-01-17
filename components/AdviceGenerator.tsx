@@ -1,156 +1,126 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { GoogleGenAI, Type } from '@google/genai';
-import { RefreshIcon, WorldIcon } from './Icons';
 
-const availableLanguages = ['English', 'German', 'Spanish', 'French', 'Japanese', 'Turkish', 'Arabic', 'Italian', 'Russian'];
+import React, { useState, useEffect, useMemo } from 'react';
+import { RefreshIcon } from './Icons';
+
+const EASY_INSPIRATIONS = [
+    "Tap a pencil on three different surfaces around you.",
+    "Crinkle a dry snack bag slowly near your microphone.",
+    "Record the sound of pouring a cold glass of water.",
+    "Snap your fingers at three different distances from the mic.",
+    "Hum a single, steady note for exactly five seconds.",
+    "Slowly open and then quickly close a heavy door.",
+    "Shuffle your feet across a rug or carpeted floor.",
+    "Clink two metal spoons together softly.",
+    "Blow gently across the top of an empty glass bottle.",
+    "Tear a piece of scrap paper as slowly as possible.",
+    "Rattle a bunch of keys for a metallic texture.",
+    "Scratch the surface of a cardboard box with your fingernails.",
+    "Click a ballpoint pen in a rhythmic pattern.",
+    "Stir a cup of liquid with a metal spoon.",
+    "Rub two smooth stones together.",
+    "Clap your hands: once soft, once medium, once loud.",
+    "Record yourself whispering a short, random word.",
+    "Shake a container of dry rice, lentils, or pasta.",
+    "Zip and unzip a jacket or bag quickly.",
+    "Tap rhythmically on a hollow wooden table or desk."
+];
+
+const ABSTRACT_INSPIRATIONS = [
+    "Capture the 'weight' of silence in a busy room.",
+    "Record the hidden electromagnetic hum of a power adapter.",
+    "Interpret the feeling of 'brittle' using only found objects.",
+    "Document the slowest possible movement of a squeaky hinge.",
+    "Create a rhythmic loop using only the sound of friction.",
+    "Find and record the resonant frequency of your bathroom.",
+    "Capture the microscopic texture of a melting ice cube.",
+    "Record the rhythmic 'dying' sound of a battery-powered toy.",
+    "Capture the whistle of wind through a narrow window crack.",
+    "Layer three different textures of household 'white noise'.",
+    "Sound out the visual texture of a piece of moss or fabric.",
+    "Record the internal resonance of an empty metal trash can.",
+    "Capture the transition from liquid bubbling to steam.",
+    "Find a sound in your environment that represents 'stasis'.",
+    "Record the vibration of a phone on a resonant glass surface.",
+    "Manipulate a sigh until it sounds entirely mechanical.",
+    "Capture the rhythmic 'breathing' of an old radiator or AC.",
+    "Record the sound of a clock ticking from a separate room.",
+    "Find the highest natural pitch your current room offers.",
+    "Record the sound of your own heartbeat using the microphone."
+];
 
 const AdviceGenerator: React.FC = () => {
     const [showInspiration, setShowInspiration] = useState<boolean>(false);
-    const [inspirations, setInspirations] = useState<string[]>([]);
-    const [currentIndex, setCurrentIndex] = useState<number>(0);
-    const [isLoading, setIsLoading] = useState<boolean>(false);
-    const [error, setError] = useState<string | null>(null);
     const [difficulty, setDifficulty] = useState<'easy' | 'abstract'>('abstract');
-    const [language, setLanguage] = useState<string>('English');
-    const [isLanguagePickerOpen, setIsLanguagePickerOpen] = useState<boolean>(false);
-    const pickerRef = useRef<HTMLDivElement>(null);
+    const [currentIndex, setCurrentIndex] = useState<number>(0);
 
-    const fetchInspirations = useCallback(async () => {
-        if (!showInspiration) return;
-        setIsLoading(true);
-        setError(null);
-        try {
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
-            const prompt = `Generate a JSON array of 7 short, creative ideas for sound design. The ideas should be ${
-                difficulty === 'easy'
-                ? 'simple and easy for anyone to try'
-                : 'abstract and thought-provoking for a sound artist'
-            }. The response must be in ${language}. The ideas should be inspired by nature, sustainability, and our environment. Mix ideas between making sounds yourself (like snapping fingers) and finding sounds in your environment (like rain on a window). The prompts should be direct actions or descriptions of sounds, without explaining their deeper meaning. For example: "Capture the brittle rustle of dry leaves on pavement." or "Gently tap a crystal glass with a metal spoon.". Return only the JSON array of strings.`;
-            
-            const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash',
-                contents: prompt,
-                config: {
-                    responseMimeType: "application/json",
-                    responseSchema: {
-                        type: Type.ARRAY,
-                        items: { type: Type.STRING }
-                    },
-                    temperature: 1.0,
-                }
-            });
-
-            const parsedInspirations = JSON.parse(response.text);
-            if (Array.isArray(parsedInspirations) && parsedInspirations.length > 0) {
-                setInspirations(parsedInspirations);
-                setCurrentIndex(0);
-            } else {
-                throw new Error("Received empty or invalid data.");
-            }
-        } catch (e) {
-            console.error("Error fetching inspirations:", e);
-            setError("Could not fetch inspirations. Please try again.");
-            setInspirations([]);
-        } finally {
-            setIsLoading(false);
+    // Pick a random starting point when toggled or difficulty changes
+    useEffect(() => {
+        if (showInspiration) {
+            setCurrentIndex(Math.floor(Math.random() * 20));
         }
-    }, [difficulty, language, showInspiration]);
+    }, [showInspiration, difficulty]);
 
-    useEffect(() => {
-        fetchInspirations();
-    }, [fetchInspirations]);
-
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (pickerRef.current && !pickerRef.current.contains(event.target as Node)) {
-                setIsLanguagePickerOpen(false);
-            }
-        };
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, []);
+    const currentList = useMemo(() => {
+        return difficulty === 'easy' ? EASY_INSPIRATIONS : ABSTRACT_INSPIRATIONS;
+    }, [difficulty]);
 
     const handleNext = () => {
-        const nextIndex = currentIndex + 1;
-        if (nextIndex >= inspirations.length) {
-            fetchInspirations();
-        } else {
-            setCurrentIndex(nextIndex);
-        }
+        setCurrentIndex((prev) => (prev + 1) % currentList.length);
     };
-
-    const handleLanguageSelect = (lang: string) => {
-        setLanguage(lang);
-        setIsLanguagePickerOpen(false);
-    }
-    
-    let content;
-    if (isLoading) {
-        content = <p className="text-gray-500 italic">Finding inspiration...</p>;
-    } else if (error) {
-        content = <p className="text-red-500">{error}</p>;
-    } else if (inspirations.length > 0) {
-        content = <p className="text-black text-center">"{inspirations[currentIndex]}"</p>;
-    } else if (showInspiration) {
-        content = <p className="text-gray-500">Toggle on to get inspired.</p>;
-    }
 
     return (
         <div className="w-full max-w-xl mx-auto mb-8 font-sans">
-            <div className="flex items-center justify-center gap-4 mb-2">
-                <div className="flex items-center gap-2">
-                    <label htmlFor="inspiration-toggle" className="text-sm font-bold text-black uppercase">Inspiration?</label>
+            <div className="flex items-center justify-center gap-6 mb-4">
+                <div className="flex items-center gap-3">
+                    <label htmlFor="inspiration-toggle" className="text-xs font-bold text-black uppercase tracking-widest">Inspiration</label>
                     <label className="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" id="inspiration-toggle" checked={showInspiration} onChange={() => setShowInspiration(!showInspiration)} className="sr-only peer" />
-                        <div className="w-9 h-5 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-black"></div>
+                        <input 
+                            type="checkbox" 
+                            id="inspiration-toggle" 
+                            checked={showInspiration} 
+                            onChange={() => setShowInspiration(!showInspiration)} 
+                            className="sr-only peer" 
+                        />
+                        <div className="w-10 h-5 bg-gray-300 rounded-full peer peer-checked:bg-black after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-5"></div>
                     </label>
                 </div>
+                
                 {showInspiration && (
-                  <>
-                    <div className="flex items-center gap-2">
-                        <label htmlFor="difficulty-toggle" className="text-sm font-bold text-black uppercase">{difficulty}</label>
+                    <div className="flex items-center gap-3 border-l border-gray-300 pl-6">
+                        <span className={`text-xs font-bold uppercase tracking-widest transition-opacity ${difficulty === 'abstract' ? 'opacity-100' : 'opacity-30'}`}>Abstract</span>
                         <label className="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" id="difficulty-toggle" checked={difficulty === 'easy'} onChange={() => setDifficulty(d => d === 'easy' ? 'abstract' : 'easy')} className="sr-only peer" />
-                            <div className="w-9 h-5 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-black"></div>
+                            <input 
+                                type="checkbox" 
+                                id="difficulty-toggle" 
+                                checked={difficulty === 'easy'} 
+                                onChange={() => setDifficulty(d => d === 'easy' ? 'abstract' : 'easy')} 
+                                className="sr-only peer" 
+                            />
+                            <div className="w-10 h-5 bg-black rounded-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-5"></div>
                         </label>
+                        <span className={`text-xs font-bold uppercase tracking-widest transition-opacity ${difficulty === 'easy' ? 'opacity-100' : 'opacity-30'}`}>Easy</span>
                     </div>
-                    <div className="relative" ref={pickerRef}>
-                        <button onClick={() => setIsLanguagePickerOpen(!isLanguagePickerOpen)} className="p-1.5 rounded-full hover:bg-gray-200 transition-colors">
-                            <WorldIcon className="w-5 h-5 text-black" />
-                        </button>
-                        {isLanguagePickerOpen && (
-                            <div className="absolute top-full right-0 mt-2 w-32 bg-white border border-gray-200 rounded-md shadow-lg z-20">
-                                {availableLanguages.map(lang => (
-                                    <button
-                                        key={lang}
-                                        onClick={() => handleLanguageSelect(lang)}
-                                        className={`block w-full text-left px-4 py-2 text-sm ${language === lang ? 'bg-gray-100 font-bold' : 'hover:bg-gray-50'}`}
-                                    >
-                                        {lang}
-                                    </button>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                  </>
                 )}
             </div>
             
             {showInspiration && (
-                <div className="w-full p-4 bg-white/50 border border-gray-200 shadow-sm relative rounded-md flex items-center justify-center min-h-[80px]">
-                    <div className="text-lg leading-relaxed px-8">
-                        {content}
+                <div className="w-full p-6 bg-white border border-black/10 shadow-sm relative rounded-md flex items-center justify-center min-h-[100px] transition-all duration-500 ease-in-out">
+                    <div className="text-center">
+                        <span className="block text-[10px] uppercase tracking-[0.2em] text-gray-400 mb-2 font-mono">
+                            Task {currentIndex + 1} / 20
+                        </span>
+                        <p className="text-black text-lg italic leading-relaxed px-10">
+                            "{currentList[currentIndex]}"
+                        </p>
                     </div>
-                    {inspirations.length > 0 && !error && (
-                        <button
-                            onClick={handleNext}
-                            disabled={isLoading}
-                            className="absolute top-1/2 -translate-y-1/2 right-2 p-2 text-gray-500 hover:text-black disabled:text-gray-300 disabled:cursor-wait transition-colors rounded-full"
-                            aria-label="Next inspiration"
-                        >
-                            <RefreshIcon className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
-                        </button>
-                    )}
+                    
+                    <button
+                        onClick={handleNext}
+                        className="absolute right-4 p-2 text-gray-400 hover:text-black transition-colors rounded-full"
+                        aria-label="Next inspiration"
+                    >
+                        <RefreshIcon className="w-5 h-5" />
+                    </button>
                 </div>
             )}
         </div>

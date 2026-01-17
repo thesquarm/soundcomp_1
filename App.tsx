@@ -1,10 +1,11 @@
+
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { PadState } from './types';
 import SoundPad from './components/SoundPad';
 import { PlayIcon, StopIcon, RecordIcon, AddIcon, SoundWaveIcon, DownloadIcon } from './components/Icons';
 import { createImpulseResponse, audioBufferToWav } from './utils/audio';
-import AdviceGenerator from './components/AdviceGenerator';
 import PerformanceSaveModal from './components/PerformanceSaveModal';
+import AdviceGenerator from './components/AdviceGenerator';
 
 const createPadState = (id: number): PadState => ({
   id,
@@ -194,7 +195,6 @@ const App: React.FC = () => {
             onClose={handleModalClose}
             onSaveComplete={() => {
                 setIsSaveModalOpen(false);
-                // FIX: Corrected typo from setPerformanceTosave to setPerformanceToSave
                 setPerformanceToSave(null);
             }}
         />
