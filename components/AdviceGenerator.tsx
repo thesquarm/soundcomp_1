@@ -72,7 +72,7 @@ const AdviceGenerator: React.FC = () => {
         <div className="w-full max-w-xl mx-auto mb-8 font-sans">
             <div className="flex items-center justify-center gap-6 mb-4">
                 <div className="flex items-center gap-3">
-                    <label htmlFor="inspiration-toggle" className="text-xs font-bold text-black uppercase tracking-widest">Inspiration</label>
+                    <label htmlFor="inspiration-toggle" className="text-xs font-semibold text-black/70 uppercase tracking-widest font-['Space_Grotesk']">Inspiration</label>
                     <label className="relative inline-flex items-center cursor-pointer">
                         <input 
                             type="checkbox" 
@@ -81,13 +81,13 @@ const AdviceGenerator: React.FC = () => {
                             onChange={() => setShowInspiration(!showInspiration)} 
                             className="sr-only peer" 
                         />
-                        <div className="w-10 h-5 bg-gray-300 rounded-full peer peer-checked:bg-black after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-5"></div>
+                        <div className="w-10 h-5 bg-black/10 rounded-full peer peer-checked:bg-black after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-5 shadow-inner"></div>
                     </label>
                 </div>
                 
                 {showInspiration && (
                     <div className="flex items-center gap-3 border-l border-gray-300 pl-6">
-                        <span className={`text-xs font-bold uppercase tracking-widest transition-opacity ${difficulty === 'abstract' ? 'opacity-100' : 'opacity-30'}`}>Abstract</span>
+                        <span className={`text-xs font-semibold uppercase tracking-widest font-['Space_Grotesk'] transition-opacity ${difficulty === 'abstract' ? 'opacity-100 text-black' : 'opacity-30 text-gray-500'}`}>Abstract</span>
                         <label className="relative inline-flex items-center cursor-pointer">
                             <input 
                                 type="checkbox" 
@@ -98,25 +98,25 @@ const AdviceGenerator: React.FC = () => {
                             />
                             <div className="w-10 h-5 bg-black rounded-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-5"></div>
                         </label>
-                        <span className={`text-xs font-bold uppercase tracking-widest transition-opacity ${difficulty === 'easy' ? 'opacity-100' : 'opacity-30'}`}>Easy</span>
+                        <span className={`text-xs font-semibold uppercase tracking-widest font-['Space_Grotesk'] transition-opacity ${difficulty === 'easy' ? 'opacity-100 text-black' : 'opacity-30 text-gray-500'}`}>Easy</span>
                     </div>
                 )}
             </div>
             
             {showInspiration && (
-                <div className="w-full p-6 bg-white border border-black/10 shadow-sm relative rounded-md flex items-center justify-center min-h-[100px] transition-all duration-500 ease-in-out">
+                <div className="w-full p-6 bg-white/80 backdrop-blur-sm border border-black/5 shadow-md relative rounded-3xl flex items-center justify-center min-h-[100px] transition-all duration-500 ease-in-out">
                     <div className="text-center">
-                        <span className="block text-[10px] uppercase tracking-[0.2em] text-gray-400 mb-2 font-mono">
+                        <span className="block text-[10px] uppercase tracking-[0.25em] text-neutral-400 mb-2 font-mono font-semibold">
                             Task {currentIndex + 1} / 20
                         </span>
-                        <p className="text-black text-lg italic leading-relaxed px-10">
+                        <p className="text-black text-base md:text-lg italic leading-relaxed px-10 font-normal">
                             "{currentList[currentIndex]}"
                         </p>
                     </div>
                     
                     <button
                         onClick={handleNext}
-                        className="absolute right-4 p-2 text-gray-400 hover:text-black transition-colors rounded-full"
+                        className="absolute right-4 p-2 text-neutral-400 hover:text-black transition-colors rounded-full hover:bg-black/5"
                         aria-label="Next inspiration"
                     >
                         <RefreshIcon className="w-5 h-5" />

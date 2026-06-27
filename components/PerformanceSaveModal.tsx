@@ -73,38 +73,38 @@ const PerformanceSaveModal: React.FC<PerformanceSaveModalProps> = ({ isOpen, per
             role="dialog"
         >
             <div 
-                className="bg-white rounded-lg shadow-xl w-full max-w-md p-6 font-sans"
+                className="bg-white rounded-[2rem] shadow-2xl w-full max-w-md p-7 font-sans border border-black/5"
                 onClick={(e) => e.stopPropagation()}
             >
-                <h2 className="text-2xl font-bold mb-4">Save Performance</h2>
-                <p className="text-gray-600 mb-4">Your performance is ready. Name your file and choose an option below.</p>
+                <h2 className="text-2xl font-bold mb-3 font-['Space_Grotesk'] tracking-tight">Save Performance</h2>
+                <p className="text-gray-500 mb-5 text-sm">Your performance is ready. Name your file and choose an option below.</p>
                 
-                <div className="mb-4">
-                    <label htmlFor="fileName" className="block text-sm font-medium text-gray-700 mb-1">File Name</label>
+                <div className="mb-5">
+                    <label htmlFor="fileName" className="block text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2 font-['Space_Grotesk']">File Name</label>
                     <input
                         type="text"
                         id="fileName"
                         value={fileName}
                         onChange={(e) => setFileName(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-black focus:border-black"
+                        className="w-full px-4 py-3 border border-gray-200 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent text-sm transition-all bg-neutral-50"
                     />
                 </div>
                 
-                <div className="flex flex-col sm:flex-row gap-2">
+                <div className="flex flex-col sm:flex-row gap-2.5">
                     <button
                         onClick={handleSave}
-                        className="flex-1 flex items-center justify-center gap-2 bg-black hover:bg-gray-800 text-white font-semibold py-3 px-4 transition-colors rounded-md"
+                        className="flex-1 flex items-center justify-center gap-2 bg-black hover:bg-neutral-800 text-white font-semibold py-3 px-5 transition-all rounded-full shadow-sm hover:shadow active:scale-98 text-sm"
                     >
-                        <DownloadIcon className="w-5 h-5" />
+                        <DownloadIcon className="w-4 h-4" />
                         Save to Device
                     </button>
                     {canShare && (
                         <button
                             onClick={handleShare}
                             disabled={isSharing}
-                            className="flex-1 flex items-center justify-center gap-2 bg-gray-600 hover:bg-gray-500 text-white font-semibold py-3 px-4 transition-colors rounded-md disabled:bg-gray-300"
+                            className="flex-1 flex items-center justify-center gap-2 bg-neutral-600 hover:bg-neutral-500 text-white font-semibold py-3 px-5 transition-all rounded-full disabled:bg-gray-200 disabled:text-gray-400 text-sm"
                         >
-                            <ShareIcon className="w-5 h-5" />
+                            <ShareIcon className="w-4 h-4" />
                             {isSharing ? 'Sharing...' : 'Share'}
                         </button>
                     )}
@@ -112,7 +112,7 @@ const PerformanceSaveModal: React.FC<PerformanceSaveModalProps> = ({ isOpen, per
 
                 <button 
                     onClick={onClose}
-                    className="w-full text-center text-gray-500 hover:text-black mt-4 text-sm"
+                    className="w-full text-center text-gray-400 hover:text-black mt-5 text-sm transition-colors font-medium"
                 >
                     Close (and save later)
                 </button>

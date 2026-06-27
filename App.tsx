@@ -172,18 +172,18 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center p-4 font-mono">
+    <div className="min-h-screen flex flex-col items-center p-4 md:p-8 font-['Inter']">
       {isRecordingPerformance && (
         <div className="fixed top-0 left-0 w-full h-2 bg-red-500 z-50 recording-indicator" role="status" aria-label="Recording in progress"></div>
       )}
-      <header className="text-center my-8">
-        <h1 className="text-6xl font-light text-black tracking-tight">
+      <header className="text-center my-8 md:my-12">
+        <h1 className="text-5xl md:text-6xl font-bold text-black tracking-tight font-['Space_Grotesk']">
           sound_comp
         </h1>
-        <p className="text-gray-500 mt-4 text-xl font-sans">
+        <p className="text-gray-500 mt-3 text-lg md:text-xl font-light">
           A minimalist soundscape composer
         </p>
-        <SoundWaveIcon className="w-12 h-12 mt-4 mx-auto text-gray-400" />
+        <SoundWaveIcon className="w-12 h-12 mt-4 mx-auto text-black/40" />
       </header>
 
       <AdviceGenerator />
@@ -201,7 +201,7 @@ const App: React.FC = () => {
       )}
 
       <main className="w-full max-w-5xl">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
           {pads.map(pad => (
             <SoundPad
               key={pad.id}
@@ -216,10 +216,10 @@ const App: React.FC = () => {
         </div>
 
         {pads.length < 6 && (
-            <div className="mt-6 flex justify-center">
+            <div className="mt-8 flex justify-center">
                 <button
                     onClick={handleAddPad}
-                    className="flex items-center gap-2 bg-white hover:bg-gray-100 text-black font-semibold py-3 px-6 transition-colors border border-gray-300 shadow-sm rounded-md"
+                    className="flex items-center gap-2 bg-white hover:bg-gray-50 text-black font-semibold py-3 px-8 transition-all border border-gray-200 shadow-sm hover:shadow-md rounded-full"
                 >
                     <AddIcon className="w-5 h-5" />
                     Add Pad
@@ -227,25 +227,25 @@ const App: React.FC = () => {
             </div>
         )}
 
-        <div className="mt-10 flex justify-center gap-2 flex-wrap">
+        <div className="mt-12 flex justify-center gap-3 flex-wrap">
             <button
                 onClick={handleTogglePerformanceRecord}
                 disabled={pads.every(p => !p.audioUrl)}
-                className="flex items-center gap-2 bg-black hover:bg-gray-800 text-white font-semibold py-3 px-6 transition-colors disabled:bg-gray-200 disabled:text-gray-500 disabled:cursor-not-allowed text-base rounded-md"
+                className="flex items-center gap-2 bg-black hover:bg-neutral-800 text-white font-semibold py-3 px-8 transition-all disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed text-base rounded-full shadow-sm hover:shadow-md"
             >
                 <RecordIcon className="w-5 h-5" />
                 {isRecordingPerformance ? 'Stop Recording' : 'Record Performance'}
             </button>
             <button
                 onClick={handlePlayAll}
-                className="flex items-center gap-2 bg-black hover:bg-gray-800 text-white font-semibold py-3 px-6 transition-colors text-base rounded-md"
+                className="flex items-center gap-2 bg-black hover:bg-neutral-800 text-white font-semibold py-3 px-8 transition-all text-base rounded-full shadow-sm hover:shadow-md"
             >
                 <PlayIcon className="w-5 h-5" />
                 Play All
             </button>
             <button
                 onClick={handleStopAll}
-                className="flex items-center gap-2 bg-black hover:bg-gray-800 text-white font-semibold py-3 px-6 transition-colors text-base rounded-md"
+                className="flex items-center gap-2 bg-black hover:bg-neutral-800 text-white font-semibold py-3 px-8 transition-all text-base rounded-full shadow-sm hover:shadow-md"
             >
                 <StopIcon className="w-5 h-5" />
                 Stop All
@@ -253,12 +253,12 @@ const App: React.FC = () => {
         </div>
         
         {savedPerformances.length > 0 && (
-            <div className="mt-10 w-full max-w-md mx-auto">
-                <h3 className="text-center text-lg font-bold mb-2">Unsaved Recordings</h3>
-                <ul className="bg-white/50 border border-gray-200 rounded-md p-2 space-y-2">
+            <div className="mt-12 w-full max-w-md mx-auto">
+                <h3 className="text-center text-lg font-bold mb-3 font-['Space_Grotesk']">Unsaved Recordings</h3>
+                <ul className="bg-white/60 backdrop-blur-sm border border-gray-200/50 rounded-3xl p-3 space-y-2 shadow-sm">
                     {savedPerformances.map((perf, index) => (
-                        <li key={index} className="flex items-center justify-between p-2 bg-white rounded-md shadow-sm">
-                            <span className="text-sm font-mono truncate mr-2">{perf.name}</span>
+                        <li key={index} className="flex items-center justify-between p-3 bg-white/90 rounded-2xl shadow-sm border border-black/5">
+                            <span className="text-sm font-mono truncate mr-2 text-gray-700">{perf.name}</span>
                             <a 
                                 href={perf.url} 
                                 download={perf.name}
@@ -273,8 +273,34 @@ const App: React.FC = () => {
             </div>
         )}
       </main>
-      <footer className="text-center mt-12 text-sm text-black opacity-75">
-        <p>App by Philip and Google AI Studio / Part of sustain_sound by the TEAM project / If you have any questions or feedback, please contact <a href="mailto:p.stade@mh-freiburg.de">Philip, p.stade@mh-freiburg.de</a> </p>
+      <footer className="text-center mt-16 mb-8 text-sm text-black/60 max-w-2xl px-4">
+        <p className="leading-relaxed">
+          App by Philip and Google AI Studio / Part of{' '}
+          <a 
+            href="https://openmusic.academy/docs/8SRk2JZtBFy7UsNb2Vs36h/" 
+            target="_blank" 
+            rel="noopener noreferrer" 
+            className="underline hover:text-black font-semibold transition-colors"
+          >
+            sustain_sound by the TEAM project
+          </a>{' '}
+          on{' '}
+          <a 
+            href="https://openmusic.academy" 
+            target="_blank" 
+            rel="noopener noreferrer" 
+            className="underline hover:text-black font-semibold transition-colors"
+          >
+            OMA
+          </a>{' '}
+          / If you have any questions or feedback, please contact{' '}
+          <a 
+            href="mailto:p.stade@mh-freiburg.de" 
+            className="underline hover:text-black transition-colors"
+          >
+            Philip, p.stade@mh-freiburg.de
+          </a>
+        </p>
       </footer>
     </div>
   );

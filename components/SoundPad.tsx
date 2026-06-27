@@ -456,15 +456,15 @@ const SoundPad: React.FC<SoundPadProps> = ({ padState, updatePadState, getAudioC
   return (
     <div 
       style={{ backgroundColor: padColor }}
-      className={`p-4 transition-all duration-300 flex flex-col justify-between border border-black/10 shadow-lg rounded-md sound-pad-enter ${isRecording ? 'ring-2 ring-red-500 ring-offset-2' : padState.isPlaying ? 'ring-2 ring-black ring-offset-2' : ''}`}
+      className={`p-5 transition-all duration-300 flex flex-col justify-between border border-black/10 shadow-lg hover:shadow-xl rounded-[1.8rem] sound-pad-enter ${isRecording ? 'ring-2 ring-red-500 ring-offset-2' : padState.isPlaying ? 'ring-2 ring-black ring-offset-2' : ''}`}
     >
       <header>
-        <div className="flex justify-between items-center mb-2 gap-2">
+        <div className="flex justify-between items-center mb-3 gap-2">
           <input
             type="text"
             value={padState.name}
             onChange={(e) => updatePadState(padState.id, { name: e.target.value })}
-            className="font-bold text-base uppercase text-black bg-transparent border-none p-0 focus:ring-0 w-full flex-grow min-w-0"
+            className="font-bold text-base uppercase text-black bg-transparent border-none p-0 focus:ring-0 w-full flex-grow min-w-0 font-['Space_Grotesk'] tracking-wide"
             disabled={isRecording}
           />
           <div className="flex items-center gap-2 flex-shrink-0">
@@ -473,21 +473,21 @@ const SoundPad: React.FC<SoundPadProps> = ({ padState, updatePadState, getAudioC
                 onClick={isRecording ? handleToggleRecord : handleTogglePlay}
                 disabled={!hasAudio && !isRecording}
                 aria-label={isRecording ? 'Stop Recording' : padState.isPlaying ? 'Pause' : 'Play'}
-                className="w-10 h-10 bg-black/75 hover:bg-black text-white rounded-full flex items-center justify-center transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black disabled:bg-gray-400 disabled:cursor-not-allowed"
+                className="w-10 h-10 bg-black hover:bg-neutral-800 text-white rounded-full flex items-center justify-center shadow-md transition-all active:scale-95 focus:outline-none disabled:bg-gray-400 disabled:cursor-not-allowed"
               >
-                {isRecording ? <StopIcon className="w-6 h-6" />
-                  : padState.isPlaying ? <PauseIcon className="w-6 h-6" />
-                  : <PlayIcon className="w-6 h-6" />
+                {isRecording ? <StopIcon className="w-5 h-5" />
+                  : padState.isPlaying ? <PauseIcon className="w-5 h-5" />
+                  : <PlayIcon className="w-5 h-5" />
                 }
               </button>
             )}
             <div className="flex items-center gap-1">
               {hasAudio && !isRecording && (
                   <>
-                    <button onClick={handleExport} title="Download" className="p-1 rounded-full hover:bg-black/10 text-gray-600 hover:text-black transition-colors disabled:text-gray-300 disabled:cursor-not-allowed">
+                    <button onClick={handleExport} title="Download" className="p-2 rounded-full hover:bg-black/10 text-neutral-600 hover:text-black transition-colors disabled:text-gray-300 disabled:cursor-not-allowed">
                         <DownloadIcon className="w-4 h-4"/>
                     </button>
-                    <button onClick={handleClear} title="Clear Pad" className="text-gray-600 hover:text-black transition-colors p-1 flex-shrink-0">
+                    <button onClick={handleClear} title="Clear Pad" className="p-2 rounded-full hover:bg-black/10 text-neutral-600 hover:text-black transition-colors flex-shrink-0">
                       <TrashIcon className="w-4 h-4" />
                     </button>
                   </>
@@ -495,11 +495,11 @@ const SoundPad: React.FC<SoundPadProps> = ({ padState, updatePadState, getAudioC
             </div>
           </div>
         </div>
-        {isRecording && <p className="text-base text-red-500 text-right">Recording...</p>}
+        {isRecording && <p className="text-xs font-semibold font-['Space_Grotesk'] text-red-500 text-right animate-pulse">RECORDING...</p>}
       </header>
       
       <div
-          className="h-24 my-4 w-full flex items-center justify-center relative bg-black/5 rounded-md select-none"
+          className="h-24 my-4 w-full flex items-center justify-center relative bg-black/5 rounded-2xl overflow-hidden select-none"
       >
           {hasAudio && (
             <>
@@ -534,31 +534,31 @@ const SoundPad: React.FC<SoundPadProps> = ({ padState, updatePadState, getAudioC
           )}
 
           {!hasAudio && !isRecording && (
-            <div className="flex gap-2 w-full h-full p-2">
+            <div className="flex gap-3 w-full h-full p-2.5">
                 <button
                     onClick={handleToggleRecord}
-                    className="flex-1 h-full flex flex-col items-center justify-center bg-gray-50 hover:bg-gray-100 text-black transition-colors rounded-md"
+                    className="flex-1 h-full flex flex-col items-center justify-center bg-white/70 hover:bg-white text-black border border-black/5 transition-all rounded-2xl shadow-sm hover:shadow active:scale-98"
                 >
-                    <RecordIcon className="w-6 h-6 mb-1"/>
-                    <span className="text-sm font-semibold">RECORD</span>
+                    <RecordIcon className="w-5 h-5 mb-1.5 text-red-500"/>
+                    <span className="text-[11px] font-bold tracking-wider font-['Space_Grotesk']">RECORD</span>
                 </button>
                 <button
                     onClick={handleUploadClick}
-                    className="flex-1 h-full flex flex-col items-center justify-center bg-gray-50 hover:bg-gray-100 text-black transition-colors rounded-md"
+                    className="flex-1 h-full flex flex-col items-center justify-center bg-white/70 hover:bg-white text-black border border-black/5 transition-all rounded-2xl shadow-sm hover:shadow active:scale-98"
                 >
-                    <UploadIcon className="w-6 h-6 mb-1"/>
-                    <span className="text-sm font-semibold">UPLOAD</span>
+                    <UploadIcon className="w-5 h-5 mb-1.5 text-neutral-700"/>
+                    <span className="text-[11px] font-bold tracking-wider font-['Space_Grotesk']">UPLOAD</span>
                 </button>
             </div>
           )}
       </div>
 
-      <div className="space-y-3 text-sm">
-        <div className="space-y-4 pt-2">
+      <div className="space-y-4 text-sm">
+        <div className="space-y-4 pt-1">
             <div>
                 <div className="flex justify-between items-center mb-1">
-                    <label htmlFor={`rate-${padState.id}`} className="text-sm font-bold text-black uppercase">Speed</label>
-                    <span className="text-sm text-black font-mono">{padState.playbackRate.toFixed(2)}x</span>
+                    <label htmlFor={`rate-${padState.id}`} className="text-xs font-semibold text-black/70 tracking-wider uppercase font-['Space_Grotesk']">Speed</label>
+                    <span className="text-xs text-black/90 font-mono font-semibold bg-white/40 shadow-sm border border-black/5 px-2.5 py-0.5 rounded-full">{padState.playbackRate.toFixed(2)}x</span>
                 </div>
                 <input
                     id={`rate-${padState.id}`} type="range" min="0.5" max="1.5" step="0.01"
@@ -571,8 +571,8 @@ const SoundPad: React.FC<SoundPadProps> = ({ padState, updatePadState, getAudioC
             </div>
             <div>
                 <div className="flex justify-between items-center mb-1">
-                    <label htmlFor={`volume-${padState.id}`} className="text-sm font-bold text-black uppercase">Volume</label>
-                    <span className="text-sm text-black font-mono">{Math.round(padState.volume * 100)}%</span>
+                    <label htmlFor={`volume-${padState.id}`} className="text-xs font-semibold text-black/70 tracking-wider uppercase font-['Space_Grotesk']">Volume</label>
+                    <span className="text-xs text-black/90 font-mono font-semibold bg-white/40 shadow-sm border border-black/5 px-2.5 py-0.5 rounded-full">{Math.round(padState.volume * 100)}%</span>
                 </div>
                 <input
                     id={`volume-${padState.id}`} type="range" min="0" max="1" step="0.01"
@@ -585,8 +585,8 @@ const SoundPad: React.FC<SoundPadProps> = ({ padState, updatePadState, getAudioC
             </div>
             <div>
                 <div className="flex justify-between items-center mb-1">
-                    <label htmlFor={`reverb-${padState.id}`} className="text-sm font-bold text-black uppercase">Reverb</label>
-                    <span className="text-sm text-black font-mono">{Math.round(padState.reverbMix * 100)}%</span>
+                    <label htmlFor={`reverb-${padState.id}`} className="text-xs font-semibold text-black/70 tracking-wider uppercase font-['Space_Grotesk']">Reverb</label>
+                    <span className="text-xs text-black/90 font-mono font-semibold bg-white/40 shadow-sm border border-black/5 px-2.5 py-0.5 rounded-full">{Math.round(padState.reverbMix * 100)}%</span>
                 </div>
                 <input
                     id={`reverb-${padState.id}`} type="range" min="0" max="1" step="0.01"
@@ -601,8 +601,8 @@ const SoundPad: React.FC<SoundPadProps> = ({ padState, updatePadState, getAudioC
               <>
                 <div>
                     <div className="flex justify-between items-center mb-1">
-                        <label htmlFor={`lowcut-${padState.id}`} className="text-sm font-bold text-black uppercase">Low Cut</label>
-                        <span className="text-sm text-black font-mono">{padState.lowCut.toFixed(0)} Hz</span>
+                        <label htmlFor={`lowcut-${padState.id}`} className="text-xs font-semibold text-black/70 tracking-wider uppercase font-['Space_Grotesk']">Low Cut</label>
+                        <span className="text-xs text-black/90 font-mono font-semibold bg-white/40 shadow-sm border border-black/5 px-2.5 py-0.5 rounded-full">{padState.lowCut.toFixed(0)} Hz</span>
                     </div>
                     <input
                         id={`lowcut-${padState.id}`} type="range" min="20" max="5000" step="1"
@@ -615,8 +615,8 @@ const SoundPad: React.FC<SoundPadProps> = ({ padState, updatePadState, getAudioC
                 </div>
                 <div>
                     <div className="flex justify-between items-center mb-1">
-                        <label htmlFor={`highcut-${padState.id}`} className="text-sm font-bold text-black uppercase">High Cut</label>
-                        <span className="text-sm text-black font-mono">{padState.highCut.toFixed(0)} Hz</span>
+                        <label htmlFor={`highcut-${padState.id}`} className="text-xs font-semibold text-black/70 tracking-wider uppercase font-['Space_Grotesk']">High Cut</label>
+                        <span className="text-xs text-black/90 font-mono font-semibold bg-white/40 shadow-sm border border-black/5 px-2.5 py-0.5 rounded-full">{padState.highCut.toFixed(0)} Hz</span>
                     </div>
                     <input
                         id={`highcut-${padState.id}`} type="range" min="500" max="22050" step="1"
@@ -631,26 +631,26 @@ const SoundPad: React.FC<SoundPadProps> = ({ padState, updatePadState, getAudioC
             )}
         </div>
 
-        <div className="flex justify-around items-center pt-2 border-t border-black/10 mt-4">
+        <div className="flex justify-around items-center pt-3 border-t border-black/10 mt-5">
             <div className="flex items-center gap-2">
-                <label htmlFor={`loop-${padState.id}`} className="text-sm font-bold text-black uppercase">Loop</label>
+                <label htmlFor={`loop-${padState.id}`} className="text-xs font-semibold text-black/70 tracking-wider uppercase font-['Space_Grotesk']">Loop</label>
                 <label className="relative inline-flex items-center cursor-pointer">
                     <input type="checkbox" id={`loop-${padState.id}`} checked={padState.isLooping} onChange={handleToggleLoop} className="sr-only peer" disabled={!hasAudio || isRecording} />
-                    <div className="w-9 h-5 bg-gray-200 rounded-full peer peer-checked:bg-black after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-black peer-checked:after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full peer-disabled:opacity-50"></div>
+                    <div className="w-9 h-5 bg-black/10 rounded-full peer peer-checked:bg-black after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-black peer-checked:after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full peer-disabled:opacity-50 shadow-inner"></div>
                 </label>
             </div>
             <div className="flex items-center gap-2">
-                <label htmlFor={`reverse-${padState.id}`} className="text-sm font-bold text-black uppercase">Reverse</label>
+                <label htmlFor={`reverse-${padState.id}`} className="text-xs font-semibold text-black/70 tracking-wider uppercase font-['Space_Grotesk']">Reverse</label>
                 <label className="relative inline-flex items-center cursor-pointer">
                     <input type="checkbox" id={`reverse-${padState.id}`} checked={padState.isReversed} onChange={handleToggleReverse} className="sr-only peer" disabled={!hasAudio || isRecording} />
-                    <div className="w-9 h-5 bg-gray-200 rounded-full peer peer-checked:bg-black after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-black peer-checked:after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full peer-disabled:opacity-50"></div>
+                    <div className="w-9 h-5 bg-black/10 rounded-full peer peer-checked:bg-black after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-black peer-checked:after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full peer-disabled:opacity-50 shadow-inner"></div>
                 </label>
             </div>
              <div className="flex items-center gap-2">
-                <label htmlFor={`filter-${padState.id}`} className="text-sm font-bold text-black uppercase">Filter</label>
+                <label htmlFor={`filter-${padState.id}`} className="text-xs font-semibold text-black/70 tracking-wider uppercase font-['Space_Grotesk']">Filter</label>
                 <label className="relative inline-flex items-center cursor-pointer">
                     <input type="checkbox" id={`filter-${padState.id}`} checked={padState.isFilterEnabled} onChange={handleToggleFilter} className="sr-only peer" disabled={!hasAudio || isRecording} />
-                    <div className="w-9 h-5 bg-gray-200 rounded-full peer peer-checked:bg-black after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-black peer-checked:after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full peer-disabled:opacity-50"></div>
+                    <div className="w-9 h-5 bg-black/10 rounded-full peer peer-checked:bg-black after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-black peer-checked:after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full peer-disabled:opacity-50 shadow-inner"></div>
                 </label>
             </div>
         </div>

@@ -5,6 +5,10 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>sound_comp</title>
+    <!-- Import Google Fonts for Space Grotesk, Inter, and JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
   <script type="importmap">
 {
@@ -18,14 +22,14 @@
 </script>
   <style>
     @keyframes gradient {
-      0% { background-color: #f3f4f6; } /* gray-100 */
-      50% { background-color: #e5e7eb; } /* gray-200 */
-      100% { background-color: #f3f4f6; } /* gray-100 */
+      0% { background-color: #fafafa; }
+      50% { background-color: #f4f4f5; }
+      100% { background-color: #fafafa; }
     }
     body {
-      background-color: #f3f4f6;
+      background-color: #f4f4f5;
       animation: gradient 15s ease infinite;
-      font-family: "Courier New", Courier, monospace;
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
     }
     /* Custom Slider Styles */
     input[type="range"] {
@@ -98,6 +102,7 @@
       animation: pulse-red 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
     }
   </style>
+<link rel="stylesheet" href="/index.css">
 </head>
   <body class="bg-white text-black antialiased">
     <div id="root"></div>
