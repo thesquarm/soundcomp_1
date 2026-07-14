@@ -6,6 +6,7 @@ import { PlayIcon, StopIcon, RecordIcon, AddIcon, SoundWaveIcon, DownloadIcon } 
 import { createImpulseResponse, audioBufferToWav } from './utils/audio';
 import PerformanceSaveModal from './components/PerformanceSaveModal';
 import AdviceGenerator from './components/AdviceGenerator';
+import { CookieBanner } from './components/CookieBanner';
 
 const createPadState = (id: number): PadState => ({
   id,
@@ -75,6 +76,49 @@ const App: React.FC = () => {
     };
     createReverb();
   }, [getAudioContext, impulseResponseBuffer]);
+
+  // Fix for iOS Safari Web Audio interruption issue when backgrounded or locked
+  useEffect(() => {
+    const resumeAudio = async () => {
+      if (audioContextRef.current) {
+        if (audioContextRef.current.state === 'suspended' || (audioContextRef.current as any).state === 'interrupted') {
+          try {
+            await audioContextRef.current.resume();
+            console.log("AudioContext successfully resumed.");
+          } catch (e) {
+            console.warn("Failed to resume AudioContext automatically:", e);
+          }
+        }
+      }
+    };
+
+    const handleVisibilityOrFocus = () => {
+      if (document.visibilityState === 'visible') {
+        resumeAudio();
+      }
+    };
+
+    // User gesture fallback to wake up audio on mobile Safari
+    const handleUserInteraction = () => {
+      resumeAudio();
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityOrFocus);
+    window.addEventListener('focus', handleVisibilityOrFocus);
+    window.addEventListener('pageshow', handleVisibilityOrFocus);
+    
+    // Add touchstart and mousedown listeners on the window
+    window.addEventListener('touchstart', handleUserInteraction, { passive: true });
+    window.addEventListener('mousedown', handleUserInteraction, { passive: true });
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+      window.removeEventListener('focus', handleVisibilityOrFocus);
+      window.removeEventListener('pageshow', handleVisibilityOrFocus);
+      window.removeEventListener('touchstart', handleUserInteraction);
+      window.removeEventListener('mousedown', handleUserInteraction);
+    };
+  }, []);
 
 
   const updatePadState = useCallback((id: number, newValues: Partial<PadState>) => {
@@ -302,6 +346,7 @@ const App: React.FC = () => {
           </a>
         </p>
       </footer>
+      <CookieBanner />
     </div>
   );
 };
