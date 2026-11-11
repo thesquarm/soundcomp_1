@@ -2,10 +2,11 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { PadState } from './types';
 import SoundPad from './components/SoundPad';
 import { PlayIcon, StopIcon, RecordIcon, AddIcon, SoundWaveIcon, DownloadIcon } from './components/Icons';
-import { createImpulseResponse, audioBufferToWav, saveBlobAsFile } from './utils/audio';
+import { createImpulseResponse, audioBufferToWav, saveBlobAsFile, isIOSDevice, enableIOSPlaybackCategory } from './utils/audio';
 import PerformanceSaveModal from './components/PerformanceSaveModal';
 import AdviceGenerator from './components/AdviceGenerator';
 import { CookieBanner } from './components/CookieBanner';
+import SilentModeNotice from './components/SilentModeNotice';
 
 const createPadState = (id: number): PadState => ({
   id,
@@ -50,8 +51,10 @@ const App: React.FC = () => {
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
   const [performanceToSave, setPerformanceToSave] = useState<{ blob: Blob, defaultName: string } | null>(null);
   const [savedPerformances, setSavedPerformances] = useState<SavedPerformance[]>([]);
+  const [showSilentNotice, setShowSilentNotice] = useState(false);
 
   const getAudioContext = useCallback((): AudioContext => {
+    enableIOSPlaybackCategory();
     if (!audioContextRef.current) {
       audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
     }
@@ -97,8 +100,9 @@ const App: React.FC = () => {
       }
     };
 
-    // User gesture fallback to wake up audio on mobile Safari
+    // User gesture fallback to wake up audio on mobile Safari and unlock playback session
     const handleUserInteraction = () => {
+      enableIOSPlaybackCategory();
       resumeAudio();
     };
 
@@ -117,6 +121,24 @@ const App: React.FC = () => {
       window.removeEventListener('touchstart', handleUserInteraction);
       window.removeEventListener('mousedown', handleUserInteraction);
     };
+  }, []);
+
+  // On iOS devices, offer a helpful silent mode hint when user first starts playback
+  useEffect(() => {
+    if (isIOSDevice() && pads.some(p => p.isPlaying)) {
+      const alreadyDismissed = localStorage.getItem('soundcomp_silent_notice_dismissed');
+      if (!alreadyDismissed) {
+        const timer = setTimeout(() => {
+          setShowSilentNotice(true);
+        }, 1200);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [pads]);
+
+  const handleCloseSilentNotice = useCallback(() => {
+    localStorage.setItem('soundcomp_silent_notice_dismissed', 'true');
+    setShowSilentNotice(false);
   }, []);
 
   // Warn before closing or reloading tab to prevent accidental loss of recordings and settings
@@ -280,7 +302,19 @@ const App: React.FC = () => {
         <p className="text-xs text-zinc-600 font-mono tracking-widest uppercase text-center mt-2.5 font-bold select-none">
           A minimalist soundscape composer
         </p>
-        <SoundWaveIcon className="w-10 h-10 mt-3.5 mx-auto text-zinc-400" />
+        <div className="flex items-center justify-center gap-3 mt-3.5">
+          <SoundWaveIcon className="w-10 h-10 text-zinc-400" />
+          {isIOSDevice() && (
+            <button
+              type="button"
+              onClick={() => setShowSilentNotice(true)}
+              className="text-[11px] font-mono uppercase tracking-wider text-neutral-500 hover:text-black transition-colors underline bg-black/5 hover:bg-black/10 px-2.5 py-1 rounded-full"
+              title="Silent mode & sound help for iOS"
+            >
+              No sound?
+            </button>
+          )}
+        </div>
       </header>
 
       <AdviceGenerator />
@@ -407,6 +441,10 @@ const App: React.FC = () => {
         </p>
       </footer>
       <CookieBanner />
+      <SilentModeNotice 
+        isOpen={showSilentNotice} 
+        onClose={handleCloseSilentNotice} 
+      />
     </div>
   );
 };
