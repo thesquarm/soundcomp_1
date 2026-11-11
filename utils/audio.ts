@@ -249,38 +249,3 @@ export const isIOSDevice = (): boolean => {
   return /iPad|iPhone|iPod/.test(navigator.userAgent) || 
     (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent));
 };
-
-// Configures iOS WebKit AudioSession to 'playback' and uses a silent dummy sound to unlock the media audio channel so Web Audio plays even if hardware Silent Switch is flipped
-let iosAudioUnlocked = false;
-export const enableIOSPlaybackCategory = () => {
-  if (iosAudioUnlocked) return;
-  iosAudioUnlocked = true;
-
-  if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
-    try {
-      (navigator as any).audioSession.type = 'playback';
-    } catch (e) {
-      // ignore
-    }
-  }
-
-  // Play 1-frame silent WAV audio element on user gesture to route WebKit audio session to playback channel
-  try {
-    const silentAudio = document.createElement('audio');
-    silentAudio.setAttribute('x-webkit-airplay', 'deny');
-    silentAudio.preload = 'auto';
-    silentAudio.src = 'data:audio/wav;base64,UklGRigAAABXQVZFRm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA==';
-    (silentAudio as any).playsInline = true;
-    const p = silentAudio.play();
-    if (p && typeof p.then === 'function') {
-      p.then(() => {
-        silentAudio.pause();
-        silentAudio.remove();
-      }).catch(() => {
-        // ignore
-      });
-    }
-  } catch (e) {
-    // ignore
-  }
-};

@@ -11,44 +11,57 @@ export const SilentModeNotice: React.FC<SilentModeNoticeProps> = ({ isOpen, onCl
 
   return (
     <div 
-      className="fixed bottom-6 left-6 right-6 md:left-auto md:right-6 md:max-w-md z-50 bg-white/95 backdrop-blur-md border border-black/10 p-5 md:p-6 rounded-[2rem] shadow-2xl transition-all duration-300 animate-in fade-in slide-in-from-bottom-5 font-sans"
+      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+      onClick={onClose}
+      aria-modal="true"
       role="dialog"
-      aria-label="iPhone sound and silent mode notice"
     >
-      <div className="flex flex-col gap-3">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-full bg-amber-500/10 text-amber-600 flex items-center justify-center flex-shrink-0">
-            <SpeakerIcon className="w-4 h-4" />
+      <div 
+        className="bg-white rounded-[2rem] shadow-2xl w-full max-w-md p-7 font-sans border border-black/5 animate-in fade-in zoom-in-95 duration-200"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center gap-3 mb-1">
+          <div className="w-9 h-9 rounded-full bg-black/5 flex items-center justify-center text-black flex-shrink-0">
+            <SpeakerIcon className="w-5 h-5" />
           </div>
-          <h3 className="text-base font-bold font-['Space_Grotesk'] tracking-tight text-black">
-            Don't hear anything?
-          </h3>
+          <h2 className="text-2xl font-bold font-display uppercase tracking-tight text-zinc-950">
+            No Sound?
+          </h2>
         </div>
-
-        <p className="text-xs text-neutral-600 leading-relaxed">
-          On iPhones and iPads, iOS automatically mutes browser sound when the <strong>physical silent switch</strong> (on the side of your phone) or <strong>Action Button</strong> is set to Silent Mode.
+        <p className="text-xs text-zinc-600 font-mono tracking-widest uppercase mb-5 font-semibold">
+          Sound troubleshooting
         </p>
 
-        <div className="bg-neutral-50 border border-neutral-100 rounded-xl p-3 text-xs text-neutral-600 space-y-1.5 leading-relaxed">
-          <p className="flex items-start gap-2">
-            <span className="font-bold text-black">•</span>
-            <span><strong>Turn off Silent Mode:</strong> Flip the switch on the side of your iPhone so orange is not visible.</span>
-          </p>
-          <p className="flex items-start gap-2">
-            <span className="font-bold text-black">•</span>
-            <span><strong>Volume:</strong> Check that your media volume is turned up using the volume buttons.</span>
-          </p>
+        <div className="space-y-3.5 text-sm text-neutral-700 leading-relaxed">
+          <div className="bg-neutral-50 border border-neutral-100 rounded-2xl p-4 space-y-2">
+            <span className="block font-bold text-xs uppercase tracking-wider font-display text-black">
+              iPhone & iPad Silent Switch
+            </span>
+            <p className="text-xs text-neutral-600 leading-relaxed">
+              On iOS devices, Web Audio is automatically muted when the physical mute switch on the side of your phone is set to <strong>Silent Mode</strong> (orange showing).
+            </p>
+            <p className="text-xs text-neutral-600 leading-relaxed">
+              Flip the hardware switch so <strong>no orange is visible</strong>, or switch off Silent Mode in your device settings / Action Button.
+            </p>
+          </div>
+
+          <div className="bg-neutral-50 border border-neutral-100 rounded-2xl p-4 space-y-2">
+            <span className="block font-bold text-xs uppercase tracking-wider font-display text-black">
+              Media Volume & Pad Level
+            </span>
+            <p className="text-xs text-neutral-600 leading-relaxed">
+              Check that your device media volume is turned up and that the pad volume sliders are set above 0%.
+            </p>
+          </div>
         </div>
 
-        <div className="flex items-center justify-end gap-3 mt-1 pt-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="bg-black hover:bg-neutral-800 text-white font-semibold text-xs py-2 px-5 rounded-full transition-all active:scale-95 shadow-sm hover:shadow"
-          >
-            Got it
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="w-full bg-black hover:bg-neutral-800 text-white font-semibold py-3 px-6 transition-all rounded-full shadow-sm hover:shadow active:scale-98 text-sm mt-6"
+        >
+          Got it
+        </button>
       </div>
     </div>
   );
