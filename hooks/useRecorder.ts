@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
+import { registerAudioBlob } from '../utils/audio';
 
 export const useRecorder = (getAudioContext: () => AudioContext) => {
   const [isRecording, setIsRecording] = useState(false);
@@ -90,6 +91,7 @@ export const useRecorder = (getAudioContext: () => AudioContext) => {
         if (audioChunksRef.current.length > 0) {
           const audioBlob = new Blob(audioChunksRef.current, { type: finalType });
           url = URL.createObjectURL(audioBlob);
+          registerAudioBlob(url, audioBlob);
           setAudioURL(url);
         }
         audioChunksRef.current = [];

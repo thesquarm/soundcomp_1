@@ -5,7 +5,14 @@ import { PlayIcon, PauseIcon, RecordIcon, StopIcon, TrashIcon, DownloadIcon, Loo
 import { VisualizerCanvas } from './VisualizerCanvas';
 import { StaticWaveform } from './StaticWaveform';
 import { RangeSlider } from './RangeSlider';
-import { blobToAudioBuffer, reverseAudioBuffer, audioBufferToWav, saveBlobAsFile } from '../utils/audio';
+import { 
+  blobToAudioBuffer, 
+  reverseAudioBuffer, 
+  audioBufferToWav, 
+  saveBlobAsFile, 
+  registerAudioBlob, 
+  unregisterAudioBlob 
+} from '../utils/audio';
 
 interface SoundPadProps {
   padState: PadState;
@@ -160,8 +167,11 @@ const SoundPad: React.FC<SoundPadProps> = ({
     audioBufferRef.current = { original: null, reversed: null };
     setPlaybackAnalyserNode(null);
 
-    if (padState.audioUrl && padState.audioUrl.startsWith('blob:')) {
-      try { URL.revokeObjectURL(padState.audioUrl); } catch (e) { /* ignore */ }
+    if (padState.audioUrl) {
+      unregisterAudioBlob(padState.audioUrl);
+      if (padState.audioUrl.startsWith('blob:')) {
+        try { URL.revokeObjectURL(padState.audioUrl); } catch (e) { /* ignore */ }
+      }
     }
 
     updatePadState(padState.id, { 
@@ -183,24 +193,28 @@ const SoundPad: React.FC<SoundPadProps> = ({
   }, [padState.id, padState.audioUrl, updatePadState]);
 
   useEffect(() => {
+    let isCancelled = false;
     const loadAudio = async () => {
         if (padState.audioUrl) {
             const audioContext = getAudioContext();
             try {
                 const originalBuffer = await blobToAudioBuffer(audioContext, padState.audioUrl);
+                if (isCancelled) return;
                 const reversedBuffer = reverseAudioBuffer(audioContext, originalBuffer);
                 audioBufferRef.current = { original: originalBuffer, reversed: reversedBuffer };
                 setupAudioGraph();
             } catch (error) {
                 console.error("Failed to load audio buffer:", error);
-                handleClearAudio();
             }
         } else {
             audioBufferRef.current = { original: null, reversed: null };
         }
     };
     loadAudio();
-  }, [padState.audioUrl, getAudioContext, setupAudioGraph, handleClearAudio]);
+    return () => {
+      isCancelled = true;
+    };
+  }, [padState.audioUrl, getAudioContext, setupAudioGraph]);
 
   const updateCursor = useCallback(() => {
     if (!padState.isPlaying || !sourceNodeRef.current?.buffer || !playbackStartRef.current) {
@@ -484,6 +498,7 @@ const SoundPad: React.FC<SoundPadProps> = ({
     if (file) {
       handleClearAudio();
       const url = URL.createObjectURL(file);
+      registerAudioBlob(url, file);
       const name = file.name.replace(/\.[^/.]+$/, "");
       updatePadState(padState.id, { 
         audioUrl: url, 

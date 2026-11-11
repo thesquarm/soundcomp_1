@@ -1,9 +1,65 @@
-// Helper to fetch a blob and decode it to an AudioBuffer
-export const blobToAudioBuffer = async (audioContext: AudioContext, blobUrl: string): Promise<AudioBuffer> => {
-    const response = await fetch(blobUrl);
-    const blob = await response.blob();
-    const arrayBuffer = await blob.arrayBuffer();
-    return await audioContext.decodeAudioData(arrayBuffer);
+// In-memory cache for created audio Blobs to avoid unnecessary network fetches and bypass CSP restrictions
+const blobCache = new Map<string, Blob>();
+
+export const registerAudioBlob = (url: string, blob: Blob): void => {
+  blobCache.set(url, blob);
+  if (blobCache.size > 50) {
+    const firstKey = blobCache.keys().next().value;
+    if (firstKey) blobCache.delete(firstKey);
+  }
+};
+
+export const unregisterAudioBlob = (url: string | null): void => {
+  if (url) {
+    blobCache.delete(url);
+  }
+};
+
+// Helper to fetch/read a blob and decode it to an AudioBuffer
+export const blobToAudioBuffer = async (audioContext: AudioContext, blobOrUrl: Blob | string): Promise<AudioBuffer> => {
+  let arrayBuffer: ArrayBuffer;
+
+  if (typeof blobOrUrl !== 'string') {
+    arrayBuffer = await blobOrUrl.arrayBuffer();
+  } else if (blobCache.has(blobOrUrl)) {
+    const cachedBlob = blobCache.get(blobOrUrl)!;
+    arrayBuffer = await cachedBlob.arrayBuffer();
+  } else {
+    try {
+      const response = await fetch(blobOrUrl);
+      const blob = await response.blob();
+      arrayBuffer = await blob.arrayBuffer();
+    } catch (e) {
+      // Fallback via XMLHttpRequest for strict CSP environments where fetch('blob:') is blocked
+      arrayBuffer = await new Promise<ArrayBuffer>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('GET', blobOrUrl);
+        xhr.responseType = 'arraybuffer';
+        xhr.onload = () => {
+          if (xhr.status === 200 || xhr.status === 0) {
+            resolve(xhr.response);
+          } else {
+            reject(new Error(`Failed to load audio: status ${xhr.status}`));
+          }
+        };
+        xhr.onerror = () => reject(new Error('Network error loading audio blob'));
+        xhr.send();
+      });
+    }
+  }
+
+  // Cross-browser decodeAudioData supporting modern Promise and legacy Safari callback patterns
+  return await new Promise<AudioBuffer>((resolve, reject) => {
+    const copy = arrayBuffer.slice(0);
+    const result = audioContext.decodeAudioData(
+      copy,
+      (decoded) => resolve(decoded),
+      (err) => reject(err || new Error("decodeAudioData failed"))
+    );
+    if (result && typeof result.then === 'function') {
+      result.then(resolve).catch(reject);
+    }
+  });
 };
 
 // Helper to encode an AudioBuffer to a WAV Blob
