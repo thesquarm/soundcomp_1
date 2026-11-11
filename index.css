@@ -1,0 +1,118 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Space Grotesk", sans-serif;
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+:root {
+  --font-display: 'Space Grotesk', sans-serif;
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+}
+
+@keyframes gradient {
+  0% { background-color: #fafafa; }
+  50% { background-color: #f4f4f5; }
+  100% { background-color: #fafafa; }
+}
+
+body {
+  background-color: #f4f4f5;
+  animation: gradient 15s ease infinite;
+  font-family: var(--font-sans);
+}
+
+.font-display, [class*="Space_Grotesk"], [class*="Space Grotesk"] {
+  font-family: 'Space Grotesk', sans-serif !important;
+}
+
+.font-sans, [class*="Inter"] {
+  font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif !important;
+}
+
+.font-mono, [class*="JetBrains"] {
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace !important;
+}
+
+/* Custom Slider Styles */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+  width: 100%;
+}
+
+input[type="range"]:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* Thumb */
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 24px;
+  width: 24px;
+  background-color: #000;
+  border-radius: 50%;
+  border: 3px solid white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  margin-top: -9px; /* (track height - thumb height) / 2 */
+  transition: transform 0.1s ease-in-out;
+}
+
+input[type="range"]:active::-webkit-slider-thumb {
+  transform: scale(1.15);
+}
+
+input[type="range"]::-moz-range-thumb {
+  height: 24px;
+  width: 24px;
+  background-color: #000;
+  border-radius: 50%;
+  border: 3px solid white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  border: none;
+}
+
+/* Track */
+input[type="range"]::-webkit-slider-runnable-track {
+  background: var(--slider-bg);
+  height: 6px;
+  border-radius: 6px;
+}
+
+input[type="range"]::-moz-range-track {
+  background: var(--slider-bg);
+  height: 6px;
+  border-radius: 6px;
+}
+
+/* Animation for new pads */
+@keyframes fadeInScaleUp {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.sound-pad-enter {
+  animation: fadeInScaleUp 0.4s ease-out forwards;
+}
+
+/* Animation for recording indicator */
+@keyframes pulse-red {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.recording-indicator {
+  animation: pulse-red 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}

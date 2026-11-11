@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { DownloadIcon, ShareIcon } from './Icons';
+import { saveBlobAsFile } from '../utils/audio';
 
 interface PerformanceSaveModalProps {
     isOpen: boolean;
@@ -11,53 +12,65 @@ interface PerformanceSaveModalProps {
 const PerformanceSaveModal: React.FC<PerformanceSaveModalProps> = ({ isOpen, performance, onClose, onSaveComplete }) => {
     const [fileName, setFileName] = useState('');
     const [isSharing, setIsSharing] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+    const [savedSuccess, setSavedSuccess] = useState(false);
     const [canShare, setCanShare] = useState(false);
 
     useEffect(() => {
         if (performance) {
             setFileName(performance.defaultName);
+            setSavedSuccess(false);
+            setIsSaving(false);
         }
-        // Check for Web Share API availability
-        if (navigator.share && performance?.blob) {
-            const file = new File([performance.blob], "temp.wav", { type: "audio/wav" });
-             if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                setCanShare(true);
-             }
+        // Safe check for Web Share API availability with files
+        if (typeof navigator !== 'undefined' && navigator.share && performance?.blob) {
+            try {
+                const testFile = new File([performance.blob], "performance.wav", { type: "audio/wav" });
+                if (typeof navigator.canShare === 'function' && navigator.canShare({ files: [testFile] })) {
+                    setCanShare(true);
+                } else {
+                    setCanShare(false);
+                }
+            } catch (e) {
+                setCanShare(false);
+            }
         } else {
             setCanShare(false);
         }
     }, [performance]);
 
-    const handleSave = () => {
-        if (!performance) return;
-        const url = URL.createObjectURL(performance.blob);
-        const a = document.createElement('a');
-        a.style.display = 'none';
-        a.href = url;
-        a.download = fileName.endsWith('.wav') ? fileName : `${fileName}.wav`;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-        onSaveComplete();
+    const handleSave = async () => {
+        if (!performance || isSaving) return;
+        setIsSaving(true);
+        const nameToUse = fileName.trim() || 'performance';
+        const finalFileName = nameToUse.endsWith('.wav') ? nameToUse : `${nameToUse}.wav`;
+
+        const success = await saveBlobAsFile(performance.blob, finalFileName);
+        setIsSaving(false);
+        if (success) {
+            setSavedSuccess(true);
+            setTimeout(() => {
+                onSaveComplete();
+            }, 1000);
+        }
     };
 
     const handleShare = async () => {
-        if (!performance || !navigator.share) return;
-        
-        const file = new File([performance.blob], fileName, { type: performance.blob.type });
+        if (!performance || !navigator.share || isSharing) return;
+        const nameToUse = fileName.trim() || 'performance';
+        const finalFileName = nameToUse.endsWith('.wav') ? nameToUse : `${nameToUse}.wav`;
         
         try {
             setIsSharing(true);
+            const file = new File([performance.blob], finalFileName, { type: "audio/wav" });
             await navigator.share({
                 files: [file],
-                title: fileName,
+                title: finalFileName,
                 text: 'A performance from sound_comp',
             });
             onSaveComplete();
         } catch (error) {
-            console.error('Error sharing:', error);
-            // User cancelled share, etc.
+            console.log('Share dismissed or cancelled:', error);
         } finally {
             setIsSharing(false);
         }
@@ -93,15 +106,16 @@ const PerformanceSaveModal: React.FC<PerformanceSaveModalProps> = ({ isOpen, per
                 <div className="flex flex-col sm:flex-row gap-2.5">
                     <button
                         onClick={handleSave}
-                        className="flex-1 flex items-center justify-center gap-2 bg-black hover:bg-neutral-800 text-white font-semibold py-3 px-5 transition-all rounded-full shadow-sm hover:shadow active:scale-98 text-sm"
+                        disabled={isSaving}
+                        className="flex-1 flex items-center justify-center gap-2 bg-black hover:bg-neutral-800 text-white font-semibold py-3 px-5 transition-all rounded-full shadow-sm hover:shadow active:scale-98 text-sm disabled:opacity-60"
                     >
                         <DownloadIcon className="w-4 h-4" />
-                        Save to Device
+                        {savedSuccess ? 'Saved!' : isSaving ? 'Saving...' : 'Save to Device'}
                     </button>
                     {canShare && (
                         <button
                             onClick={handleShare}
-                            disabled={isSharing}
+                            disabled={isSharing || isSaving}
                             className="flex-1 flex items-center justify-center gap-2 bg-neutral-600 hover:bg-neutral-500 text-white font-semibold py-3 px-5 transition-all rounded-full disabled:bg-gray-200 disabled:text-gray-400 text-sm"
                         >
                             <ShareIcon className="w-4 h-4" />

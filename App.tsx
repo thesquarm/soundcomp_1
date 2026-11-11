@@ -1,9 +1,8 @@
-
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { PadState } from './types';
 import SoundPad from './components/SoundPad';
 import { PlayIcon, StopIcon, RecordIcon, AddIcon, SoundWaveIcon, DownloadIcon } from './components/Icons';
-import { createImpulseResponse, audioBufferToWav } from './utils/audio';
+import { createImpulseResponse, audioBufferToWav, saveBlobAsFile } from './utils/audio';
 import PerformanceSaveModal from './components/PerformanceSaveModal';
 import AdviceGenerator from './components/AdviceGenerator';
 import { CookieBanner } from './components/CookieBanner';
@@ -27,7 +26,8 @@ const createPadState = (id: number): PadState => ({
   end: 1,
 });
 
-const initialPads: PadState[] = Array.from({ length: 3 }, (_, i) => createPadState(i));
+// Factory function creates fresh pad objects on every mount (never reuses a shared mutable array)
+const createInitialPads = (): PadState[] => Array.from({ length: 3 }, (_, i) => createPadState(i));
 
 const PAD_COLORS = ['#B39EB5', '#B5B39E', '#91B39E', '#B5A29E', '#9EB5B3'];
 
@@ -38,7 +38,7 @@ interface SavedPerformance {
 }
 
 const App: React.FC = () => {
-  const [pads, setPads] = useState<PadState[]>(initialPads);
+  const [pads, setPads] = useState<PadState[]>(createInitialPads);
   const audioContextRef = useRef<AudioContext | null>(null);
   const [impulseResponseBuffer, setImpulseResponseBuffer] = useState<AudioBuffer | null>(null);
 
@@ -50,7 +50,6 @@ const App: React.FC = () => {
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
   const [performanceToSave, setPerformanceToSave] = useState<{ blob: Blob, defaultName: string } | null>(null);
   const [savedPerformances, setSavedPerformances] = useState<SavedPerformance[]>([]);
-
 
   const getAudioContext = useCallback((): AudioContext => {
     if (!audioContextRef.current) {
@@ -120,6 +119,35 @@ const App: React.FC = () => {
     };
   }, []);
 
+  // Warn before closing or reloading tab to prevent accidental loss of recordings and settings
+  useEffect(() => {
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      const hasAudio = pads.some(p => p.audioUrl !== null || p.isRecording);
+      const hasPerformances = savedPerformances.length > 0 || isRecordingPerformance || performanceToSave !== null;
+      const hasModifiedPads = pads.length !== 3 || pads.some(p => 
+        p.playbackRate !== 1 || 
+        p.volume !== 0.7 || 
+        p.isLooping || 
+        p.reverbMix !== 0.3 || 
+        p.isReversed || 
+        p.isFilterEnabled || 
+        p.start !== 0 || 
+        p.end !== 1 ||
+        p.name !== `PAD ${p.id + 1}`
+      );
+
+      if (hasAudio || hasPerformances || hasModifiedPads) {
+        event.preventDefault();
+        event.returnValue = '';
+        return '';
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [pads, savedPerformances, isRecordingPerformance, performanceToSave]);
 
   const updatePadState = useCallback((id: number, newValues: Partial<PadState>) => {
     setPads(prevPads =>
@@ -135,6 +163,16 @@ const App: React.FC = () => {
       const newPadId = prevPads.length > 0 ? Math.max(...prevPads.map(p => p.id)) + 1 : 0;
       const newPad = createPadState(newPadId);
       return [...prevPads, newPad];
+    });
+  }, []);
+
+  const handleDeletePad = useCallback((id: number) => {
+    setPads(prevPads => {
+      if (prevPads.length <= 1) {
+        // Always maintain at least one pad; reset it if last
+        return [createPadState(0)];
+      }
+      return prevPads.filter(pad => pad.id !== id);
     });
   }, []);
   
@@ -169,35 +207,50 @@ const App: React.FC = () => {
           const audioContext = getAudioContext();
           const dest = audioContext.createMediaStreamDestination();
           
-          const mimeTypes = ['audio/webm', 'audio/ogg', 'audio/mp4'];
-          const supportedMimeType = mimeTypes.find(type => MediaRecorder.isTypeSupported(type));
-
-          if (!supportedMimeType) {
-              alert("No supported audio format for recording found in this browser.");
-              return;
+          const mimeTypes = [
+            'audio/webm;codecs=opus',
+            'audio/webm',
+            'audio/mp4',
+            'audio/aac',
+            'audio/ogg'
+          ];
+          let supportedMimeType = '';
+          if (typeof MediaRecorder !== 'undefined' && typeof MediaRecorder.isTypeSupported === 'function') {
+            for (const type of mimeTypes) {
+              if (MediaRecorder.isTypeSupported(type)) {
+                supportedMimeType = type;
+                break;
+              }
+            }
           }
 
-          const recorder = new MediaRecorder(dest.stream, { mimeType: supportedMimeType });
+          const recorderOptions: MediaRecorderOptions = supportedMimeType ? { mimeType: supportedMimeType } : {};
+          const recorder = new MediaRecorder(dest.stream, recorderOptions);
 
           recordedPerformanceChunksRef.current = [];
 
           recorder.ondataavailable = (event) => {
-              if (event.data.size > 0) {
+              if (event.data && event.data.size > 0) {
                   recordedPerformanceChunksRef.current.push(event.data);
               }
           };
 
           recorder.onstop = async () => {
-              const blob = new Blob(recordedPerformanceChunksRef.current, { type: supportedMimeType });
+              const finalMime = recorder.mimeType || supportedMimeType || 'audio/webm';
+              const blob = new Blob(recordedPerformanceChunksRef.current, { type: finalMime });
               try {
-                const audioContext = getAudioContext();
+                const actx = getAudioContext();
                 const arrayBuffer = await blob.arrayBuffer();
-                const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+                const audioBuffer = await actx.decodeAudioData(arrayBuffer);
                 const wavBlob = audioBufferToWav(audioBuffer);
                 
+                const now = new Date();
+                const padDate = (n: number) => String(n).padStart(2, '0');
+                const timeString = `${now.getFullYear()}${padDate(now.getMonth() + 1)}${padDate(now.getDate())}_${padDate(now.getHours())}${padDate(now.getMinutes())}${padDate(now.getSeconds())}`;
+
                 setPerformanceToSave({
                     blob: wavBlob,
-                    defaultName: `performance_${new Date().toISOString()}.wav`
+                    defaultName: `performance_${timeString}.wav`
                 });
                 setIsSaveModalOpen(true);
               } catch (e) {
@@ -209,25 +262,25 @@ const App: React.FC = () => {
           };
 
           performanceRecorderRef.current = recorder;
-          recorder.start();
+          recorder.start(100);
           setMixDestination(dest);
           setIsRecordingPerformance(true);
       }
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center p-4 md:p-8 font-['Inter']">
+    <div className="min-h-screen flex flex-col items-center p-4 md:p-8 font-sans">
       {isRecordingPerformance && (
         <div className="fixed top-0 left-0 w-full h-2 bg-red-500 z-50 recording-indicator" role="status" aria-label="Recording in progress"></div>
       )}
-      <header className="text-center my-8 md:my-12">
-        <h1 className="text-5xl md:text-6xl font-bold text-black tracking-tight font-['Space_Grotesk']">
+      <header className="text-center my-8 md:my-10">
+        <h1 className="text-5xl md:text-6xl font-black text-zinc-950 tracking-tight font-display uppercase select-none">
           sound_comp
         </h1>
-        <p className="text-gray-500 mt-3 text-lg md:text-xl font-light">
+        <p className="text-xs text-zinc-600 font-mono tracking-widest uppercase text-center mt-2.5 font-bold select-none">
           A minimalist soundscape composer
         </p>
-        <SoundWaveIcon className="w-12 h-12 mt-4 mx-auto text-black/40" />
+        <SoundWaveIcon className="w-10 h-10 mt-3.5 mx-auto text-zinc-400" />
       </header>
 
       <AdviceGenerator />
@@ -251,6 +304,8 @@ const App: React.FC = () => {
               key={pad.id}
               padState={pad}
               updatePadState={updatePadState}
+              onDeletePad={handleDeletePad}
+              canDelete={pads.length > 1}
               getAudioContext={getAudioContext}
               impulseResponseBuffer={impulseResponseBuffer}
               mixDestination={mixDestination}
@@ -262,8 +317,9 @@ const App: React.FC = () => {
         {pads.length < 6 && (
             <div className="mt-8 flex justify-center">
                 <button
+                    type="button"
                     onClick={handleAddPad}
-                    className="flex items-center gap-2 bg-white hover:bg-gray-50 text-black font-semibold py-3 px-8 transition-all border border-gray-200 shadow-sm hover:shadow-md rounded-full"
+                    className="flex items-center gap-2 bg-white hover:bg-gray-50 text-black font-semibold py-3 px-8 transition-all border border-gray-200 shadow-sm hover:shadow-md rounded-full active:scale-95"
                 >
                     <AddIcon className="w-5 h-5" />
                     Add Pad
@@ -273,23 +329,26 @@ const App: React.FC = () => {
 
         <div className="mt-12 flex justify-center gap-3 flex-wrap">
             <button
+                type="button"
                 onClick={handleTogglePerformanceRecord}
                 disabled={pads.every(p => !p.audioUrl)}
-                className="flex items-center gap-2 bg-black hover:bg-neutral-800 text-white font-semibold py-3 px-8 transition-all disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed text-base rounded-full shadow-sm hover:shadow-md"
+                className="flex items-center gap-2 bg-black hover:bg-neutral-800 text-white font-semibold py-3 px-8 transition-all disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed text-base rounded-full shadow-sm hover:shadow-md active:scale-95"
             >
                 <RecordIcon className="w-5 h-5" />
                 {isRecordingPerformance ? 'Stop Recording' : 'Record Performance'}
             </button>
             <button
+                type="button"
                 onClick={handlePlayAll}
-                className="flex items-center gap-2 bg-black hover:bg-neutral-800 text-white font-semibold py-3 px-8 transition-all text-base rounded-full shadow-sm hover:shadow-md"
+                className="flex items-center gap-2 bg-black hover:bg-neutral-800 text-white font-semibold py-3 px-8 transition-all text-base rounded-full shadow-sm hover:shadow-md active:scale-95"
             >
                 <PlayIcon className="w-5 h-5" />
                 Play All
             </button>
             <button
+                type="button"
                 onClick={handleStopAll}
-                className="flex items-center gap-2 bg-black hover:bg-neutral-800 text-white font-semibold py-3 px-8 transition-all text-base rounded-full shadow-sm hover:shadow-md"
+                className="flex items-center gap-2 bg-black hover:bg-neutral-800 text-white font-semibold py-3 px-8 transition-all text-base rounded-full shadow-sm hover:shadow-md active:scale-95"
             >
                 <StopIcon className="w-5 h-5" />
                 Stop All
@@ -298,19 +357,20 @@ const App: React.FC = () => {
         
         {savedPerformances.length > 0 && (
             <div className="mt-12 w-full max-w-md mx-auto">
-                <h3 className="text-center text-lg font-bold mb-3 font-['Space_Grotesk']">Unsaved Recordings</h3>
+                <h3 className="text-center text-lg font-bold mb-3 font-display">Unsaved Recordings</h3>
                 <ul className="bg-white/60 backdrop-blur-sm border border-gray-200/50 rounded-3xl p-3 space-y-2 shadow-sm">
                     {savedPerformances.map((perf, index) => (
                         <li key={index} className="flex items-center justify-between p-3 bg-white/90 rounded-2xl shadow-sm border border-black/5">
                             <span className="text-sm font-mono truncate mr-2 text-gray-700">{perf.name}</span>
-                            <a 
-                                href={perf.url} 
-                                download={perf.name}
+                            <button 
+                                type="button"
+                                onClick={() => saveBlobAsFile(perf.blob, perf.name)}
                                 className="p-2 rounded-full hover:bg-gray-100 text-black transition-colors"
                                 title="Download"
+                                aria-label={`Download ${perf.name}`}
                             >
                                 <DownloadIcon className="w-5 h-5" />
-                            </a>
+                            </button>
                         </li>
                     ))}
                 </ul>

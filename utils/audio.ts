@@ -63,6 +63,90 @@ export const audioBufferToWav = (buffer: AudioBuffer): Blob => {
   }
 };
 
+/**
+ * Robust file downloader that works reliably across:
+ * - Older Android phones (Chrome, Samsung Internet, Android WebView, Firefox)
+ * - iOS Safari & iPadOS
+ * - Desktop browsers
+ *
+ * Avoids premature URL.revokeObjectURL which causes download failures on Android's async DownloadManager.
+ * Falls back to Data URL if blob: URL downloads are restricted in in-app browsers or older WebViews.
+ */
+export const saveBlobAsFile = async (blob: Blob, fileName: string): Promise<boolean> => {
+  const safeFileName = fileName.trim() || 'recording.wav';
+  const finalName = safeFileName.endsWith('.wav') ? safeFileName : `${safeFileName}.wav`;
+
+  try {
+    // 1. Try Blob URL approach
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.style.display = 'none';
+    anchor.href = url;
+    anchor.download = finalName;
+    anchor.rel = 'noopener';
+    // Helps older Android WebViews not navigate away
+    anchor.target = '_blank';
+    document.body.appendChild(anchor);
+
+    // Trigger click
+    if (typeof anchor.click === 'function') {
+      anchor.click();
+    } else {
+      const evt = new MouseEvent('click', { bubbles: true, cancelable: true, view: window });
+      anchor.dispatchEvent(evt);
+    }
+
+    // Remove anchor element after short delay
+    setTimeout(() => {
+      try {
+        if (anchor.parentNode) {
+          anchor.parentNode.removeChild(anchor);
+        }
+      } catch (e) {
+        // ignore
+      }
+    }, 1000);
+
+    // Keep object URL alive for 60 seconds so Android DownloadManager can finish fetching it!
+    setTimeout(() => {
+      try {
+        URL.revokeObjectURL(url);
+      } catch (e) {
+        // ignore
+      }
+    }, 60000);
+
+    return true;
+  } catch (error) {
+    console.warn("Blob URL download failed, trying Data URL fallback:", error);
+
+    // 2. Fallback: Convert to Data URL (base64) for older Android WebViews
+    try {
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+
+      const anchor = document.createElement('a');
+      anchor.style.display = 'none';
+      anchor.href = dataUrl;
+      anchor.download = finalName;
+      anchor.target = '_blank';
+      document.body.appendChild(anchor);
+      anchor.click();
+      setTimeout(() => {
+        if (anchor.parentNode) anchor.parentNode.removeChild(anchor);
+      }, 1000);
+      return true;
+    } catch (fallbackError) {
+      console.error("All download methods failed:", fallbackError);
+      return false;
+    }
+  }
+};
+
 // Helper to programmatically create an impulse response for reverb
 export const createImpulseResponse = async (
   audioContext: BaseAudioContext,
