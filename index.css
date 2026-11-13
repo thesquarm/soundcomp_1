@@ -24,6 +24,10 @@ body {
   font-family: var(--font-sans);
 }
 
+button {
+  touch-action: manipulation;
+}
+
 .font-display, [class*="Space_Grotesk"], [class*="Space Grotesk"] {
   font-family: 'Space Grotesk', sans-serif !important;
 }

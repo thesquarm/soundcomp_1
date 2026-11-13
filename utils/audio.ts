@@ -1,5 +1,6 @@
 // In-memory cache for created audio Blobs to avoid unnecessary network fetches and bypass CSP restrictions
 const blobCache = new Map<string, Blob>();
+const unlockedAudioContexts = new WeakSet<AudioContext>();
 
 export const registerAudioBlob = (url: string, blob: Blob): void => {
   blobCache.set(url, blob);
@@ -15,8 +16,97 @@ export const unregisterAudioBlob = (url: string | null): void => {
   }
 };
 
+export const getAudioContextConstructor = (): typeof AudioContext => {
+  return window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+};
+
+/**
+ * Synchronously unlocks an AudioContext inside a user gesture (critical for iOS Safari / WebKit).
+ * Safe to call repeatedly; plays a 1-sample silent buffer once per AudioContext instance.
+ */
+export const unlockAudioContext = (audioContext: AudioContext): void => {
+  try {
+    const state = audioContext.state as string;
+    if (state === 'suspended' || state === 'interrupted') {
+      audioContext.resume().catch(() => {
+        // Ignore; async resume will retry if needed
+      });
+    }
+
+    if (!unlockedAudioContexts.has(audioContext)) {
+      const buffer = audioContext.createBuffer(1, 1, 22050);
+      const source = audioContext.createBufferSource();
+      source.buffer = buffer;
+      source.connect(audioContext.destination);
+      source.onended = () => {
+        try {
+          source.disconnect();
+        } catch {
+          // ignore
+        }
+      };
+      source.start(0);
+      unlockedAudioContexts.add(audioContext);
+    }
+  } catch (e) {
+    console.warn('AudioContext unlock attempt warning:', e);
+  }
+};
+
+/**
+ * Ensures an AudioContext is actively running, handling both 'suspended' and iOS Safari 'interrupted' states.
+ */
+export const ensureAudioContextRunning = async (audioContext: AudioContext): Promise<AudioContext> => {
+  unlockAudioContext(audioContext);
+  const state = audioContext.state as string;
+  if (state === 'suspended' || state === 'interrupted') {
+    try {
+      await audioContext.resume();
+    } catch (e) {
+      console.warn('Failed to resume AudioContext:', e);
+    }
+  }
+  return audioContext;
+};
+
+/**
+ * Cross-browser decodeAudioData supporting modern Promise and legacy Safari callback patterns.
+ * Rejects cleanly on empty/zero-length buffers.
+ */
+export const decodeAudioDataCompat = (audioContext: BaseAudioContext, arrayBuffer: ArrayBuffer): Promise<AudioBuffer> => {
+  return new Promise<AudioBuffer>((resolve, reject) => {
+    const copy = arrayBuffer.slice(0);
+    let settled = false;
+
+    const finishResolve = (decoded: AudioBuffer) => {
+      if (settled) return;
+      settled = true;
+      if (!decoded || decoded.length === 0) {
+        reject(new Error('Decoded audio buffer is empty'));
+        return;
+      }
+      resolve(decoded);
+    };
+
+    const finishReject = (err: unknown) => {
+      if (settled) return;
+      settled = true;
+      reject(err instanceof Error ? err : new Error(String(err || 'decodeAudioData failed')));
+    };
+
+    try {
+      const result = audioContext.decodeAudioData(copy, finishResolve, finishReject);
+      if (result && typeof result.then === 'function') {
+        result.then(finishResolve).catch(finishReject);
+      }
+    } catch (err) {
+      finishReject(err);
+    }
+  });
+};
+
 // Helper to fetch/read a blob and decode it to an AudioBuffer
-export const blobToAudioBuffer = async (audioContext: AudioContext, blobOrUrl: Blob | string): Promise<AudioBuffer> => {
+export const blobToAudioBuffer = async (audioContext: BaseAudioContext, blobOrUrl: Blob | string): Promise<AudioBuffer> => {
   let arrayBuffer: ArrayBuffer;
 
   if (typeof blobOrUrl !== 'string') {
@@ -29,7 +119,7 @@ export const blobToAudioBuffer = async (audioContext: AudioContext, blobOrUrl: B
       const response = await fetch(blobOrUrl);
       const blob = await response.blob();
       arrayBuffer = await blob.arrayBuffer();
-    } catch (e) {
+    } catch {
       // Fallback via XMLHttpRequest for strict CSP environments where fetch('blob:') is blocked
       arrayBuffer = await new Promise<ArrayBuffer>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
@@ -48,18 +138,7 @@ export const blobToAudioBuffer = async (audioContext: AudioContext, blobOrUrl: B
     }
   }
 
-  // Cross-browser decodeAudioData supporting modern Promise and legacy Safari callback patterns
-  return await new Promise<AudioBuffer>((resolve, reject) => {
-    const copy = arrayBuffer.slice(0);
-    const result = audioContext.decodeAudioData(
-      copy,
-      (decoded) => resolve(decoded),
-      (err) => reject(err || new Error("decodeAudioData failed"))
-    );
-    if (result && typeof result.then === 'function') {
-      result.then(resolve).catch(reject);
-    }
-  });
+  return decodeAudioDataCompat(audioContext, arrayBuffer);
 };
 
 // Helper to encode an AudioBuffer to a WAV Blob
@@ -68,7 +147,7 @@ export const audioBufferToWav = (buffer: AudioBuffer): Blob => {
   const length = buffer.length * numOfChan * 2 + 44;
   const bufferArr = new ArrayBuffer(length);
   const view = new DataView(bufferArr);
-  const channels = [];
+  const channels: Float32Array[] = [];
   let i;
   let sample;
   let offset = 0;
@@ -91,22 +170,21 @@ export const audioBufferToWav = (buffer: AudioBuffer): Blob => {
   setUint32(0x61746164); // "data" - chunk
   setUint32(length - pos - 4); // chunk length
 
-  // write interleaved data
-  for (i = 0; i < buffer.numberOfChannels; i++)
+  for (i = 0; i < buffer.numberOfChannels; i++) {
     channels.push(buffer.getChannelData(i));
+  }
 
   while (pos < length) {
     for (i = 0; i < numOfChan; i++) {
-      // interleave channels
-      sample = Math.max(-1, Math.min(1, channels[i][offset])); // clamp
-      sample = (0.5 + sample < 0 ? sample * 32768 : sample * 32767) | 0; // scale to 16-bit signed int
-      view.setInt16(pos, sample, true); // write 16-bit sample
+      sample = Math.max(-1, Math.min(1, channels[i][offset] ?? 0));
+      sample = (sample < 0 ? sample * 32768 : sample * 32767) | 0;
+      view.setInt16(pos, sample, true);
       pos += 2;
     }
-    offset++; // next source sample
+    offset++;
   }
 
-  return new Blob([view], { type: "audio/wav" });
+  return new Blob([view], { type: 'audio/wav' });
 
   function setUint16(data: number) {
     view.setUint16(pos, data, true);
@@ -120,31 +198,95 @@ export const audioBufferToWav = (buffer: AudioBuffer): Blob => {
 };
 
 /**
+ * Directly encodes captured channel Float32Array chunks into a standard 16-bit PCM WAV Blob.
+ * Supports mono (1 array of chunks) or stereo (2 arrays of chunks).
+ */
+export const encodeFloat32ChunksToWav = (
+  channelChunks: Float32Array[][],
+  totalFrames: number,
+  sampleRate: number
+): Blob => {
+  const numChannels = channelChunks.length;
+  const dataBytes = totalFrames * numChannels * 2;
+  const buffer = new ArrayBuffer(44 + dataBytes);
+  const view = new DataView(buffer);
+
+  let pos = 0;
+  const setUint16 = (data: number) => {
+    view.setUint16(pos, data, true);
+    pos += 2;
+  };
+  const setUint32 = (data: number) => {
+    view.setUint32(pos, data, true);
+    pos += 4;
+  };
+
+  setUint32(0x46464952); // "RIFF"
+  setUint32(36 + dataBytes);
+  setUint32(0x45564157); // "WAVE"
+  setUint32(0x20746d66); // "fmt "
+  setUint32(16);
+  setUint16(1); // PCM
+  setUint16(numChannels);
+  setUint32(Math.round(sampleRate));
+  setUint32(Math.round(sampleRate) * numChannels * 2);
+  setUint16(numChannels * 2);
+  setUint16(16);
+  setUint32(0x61746164); // "data"
+  setUint32(dataBytes);
+
+  // Merge each channel sequentially first to simplify interleaving
+  const mergedChannels = channelChunks.map((chunks) => {
+    const merged = new Float32Array(totalFrames);
+    let offset = 0;
+    for (const chunk of chunks) {
+      const remaining = totalFrames - offset;
+      if (remaining <= 0) break;
+      if (chunk.length <= remaining) {
+        merged.set(chunk, offset);
+        offset += chunk.length;
+      } else {
+        merged.set(chunk.subarray(0, remaining), offset);
+        offset += remaining;
+      }
+    }
+    return merged;
+  });
+
+  for (let frame = 0; frame < totalFrames; frame++) {
+    for (let ch = 0; ch < numChannels; ch++) {
+      const clamped = Math.max(-1, Math.min(1, mergedChannels[ch][frame] ?? 0));
+      const int16 = (clamped < 0 ? clamped * 32768 : clamped * 32767) | 0;
+      view.setInt16(pos, int16, true);
+      pos += 2;
+    }
+  }
+
+  return new Blob([buffer], { type: 'audio/wav' });
+};
+
+/**
  * Robust file downloader that works reliably across:
  * - Older Android phones (Chrome, Samsung Internet, Android WebView, Firefox)
  * - iOS Safari & iPadOS
  * - Desktop browsers
- *
- * Avoids premature URL.revokeObjectURL which causes download failures on Android's async DownloadManager.
- * Falls back to Data URL if blob: URL downloads are restricted in in-app browsers or older WebViews.
  */
 export const saveBlobAsFile = async (blob: Blob, fileName: string): Promise<boolean> => {
   const safeFileName = fileName.trim() || 'recording.wav';
   const finalName = safeFileName.endsWith('.wav') ? safeFileName : `${safeFileName}.wav`;
 
   try {
-    // 1. Try Blob URL approach
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
     anchor.style.display = 'none';
     anchor.href = url;
     anchor.download = finalName;
     anchor.rel = 'noopener';
-    // Helps older Android WebViews not navigate away
-    anchor.target = '_blank';
+    if (!isIOSDevice()) {
+      anchor.target = '_blank';
+    }
     document.body.appendChild(anchor);
 
-    // Trigger click
     if (typeof anchor.click === 'function') {
       anchor.click();
     } else {
@@ -152,31 +294,29 @@ export const saveBlobAsFile = async (blob: Blob, fileName: string): Promise<bool
       anchor.dispatchEvent(evt);
     }
 
-    // Remove anchor element after short delay
     setTimeout(() => {
       try {
         if (anchor.parentNode) {
           anchor.parentNode.removeChild(anchor);
         }
-      } catch (e) {
+      } catch {
         // ignore
       }
     }, 1000);
 
-    // Keep object URL alive for 60 seconds so Android DownloadManager can finish fetching it!
+    // Keep object URL alive for 60 seconds so Android DownloadManager & iOS Downloads can finish
     setTimeout(() => {
       try {
         URL.revokeObjectURL(url);
-      } catch (e) {
+      } catch {
         // ignore
       }
     }, 60000);
 
     return true;
   } catch (error) {
-    console.warn("Blob URL download failed, trying Data URL fallback:", error);
+    console.warn('Blob URL download failed, trying Data URL fallback:', error);
 
-    // 2. Fallback: Convert to Data URL (base64) for older Android WebViews
     try {
       const dataUrl = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
@@ -189,7 +329,6 @@ export const saveBlobAsFile = async (blob: Blob, fileName: string): Promise<bool
       anchor.style.display = 'none';
       anchor.href = dataUrl;
       anchor.download = finalName;
-      anchor.target = '_blank';
       document.body.appendChild(anchor);
       anchor.click();
       setTimeout(() => {
@@ -197,18 +336,18 @@ export const saveBlobAsFile = async (blob: Blob, fileName: string): Promise<bool
       }, 1000);
       return true;
     } catch (fallbackError) {
-      console.error("All download methods failed:", fallbackError);
+      console.error('All download methods failed:', fallbackError);
       return false;
     }
   }
 };
 
-// Helper to programmatically create an impulse response for reverb
-export const createImpulseResponse = async (
+// Synchronously creates an impulse response buffer for reverb
+export const createImpulseResponseSync = (
   audioContext: BaseAudioContext,
   duration = 4,
   decay = 2.0
-): Promise<AudioBuffer> => {
+): AudioBuffer => {
   const sampleRate = audioContext.sampleRate;
   const length = sampleRate * duration;
   const impulse = audioContext.createBuffer(2, length, sampleRate);
@@ -223,6 +362,14 @@ export const createImpulseResponse = async (
   return impulse;
 };
 
+export const createImpulseResponse = async (
+  audioContext: BaseAudioContext,
+  duration = 4,
+  decay = 2.0
+): Promise<AudioBuffer> => {
+  return createImpulseResponseSync(audioContext, duration, decay);
+};
+
 // Helper to reverse an AudioBuffer
 export const reverseAudioBuffer = (audioContext: BaseAudioContext, buffer: AudioBuffer): AudioBuffer => {
   const reversedBuffer = audioContext.createBuffer(
@@ -234,8 +381,7 @@ export const reverseAudioBuffer = (audioContext: BaseAudioContext, buffer: Audio
   for (let channel = 0; channel < buffer.numberOfChannels; channel++) {
     const inputData = buffer.getChannelData(channel);
     const outputData = reversedBuffer.getChannelData(channel);
-    
-    // Reverse the channel data
+
     for (let i = 0; i < inputData.length; i++) {
       outputData[i] = inputData[inputData.length - 1 - i];
     }
@@ -246,6 +392,38 @@ export const reverseAudioBuffer = (audioContext: BaseAudioContext, buffer: Audio
 // Check if device is iOS (iPhone/iPad/iPod)
 export const isIOSDevice = (): boolean => {
   if (typeof window === 'undefined' || typeof navigator === 'undefined') return false;
-  return /iPad|iPhone|iPod/.test(navigator.userAgent) || 
-    (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent));
+  return (
+    /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent))
+  );
+};
+
+// Check if running on Safari / Apple WebKit
+export const isSafariBrowser = (): boolean => {
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent;
+  return isIOSDevice() || (/Safari/.test(ua) && !/Chrome|Chromium|Android|CriOS|FxiOS|EdgiOS/.test(ua));
+};
+
+// Select optimal MediaRecorder MIME type by platform
+export const getSupportedRecorderMimeType = (): string => {
+  if (typeof MediaRecorder === 'undefined' || typeof MediaRecorder.isTypeSupported !== 'function') {
+    return '';
+  }
+
+  // On Apple / iOS WebKit, native MP4/AAC is far more reliable than WebM across Safari versions
+  const candidateTypes = isSafariBrowser()
+    ? ['audio/mp4;codecs=mp4a.40.2', 'audio/mp4', 'audio/aac', 'audio/webm;codecs=opus', 'audio/webm', 'audio/ogg']
+    : ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/mp4', 'audio/aac'];
+
+  for (const type of candidateTypes) {
+    try {
+      if (MediaRecorder.isTypeSupported(type)) {
+        return type;
+      }
+    } catch {
+      // ignore unsupported checks
+    }
+  }
+  return '';
 };

@@ -6,9 +6,9 @@ interface VisualizerCanvasProps {
 }
 
 const COLORS = {
-    recording: '#ef4444', // red-500
-    default: '#1f2937',   // gray-800
-}
+  recording: '#ef4444', // red-500
+  default: '#1f2937',   // gray-800
+};
 
 export const VisualizerCanvas: React.FC<VisualizerCanvasProps> = ({ analyserNode, isRecording }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -20,6 +20,17 @@ export const VisualizerCanvas: React.FC<VisualizerCanvasProps> = ({ analyserNode
     const canvasCtx = canvas.getContext('2d');
     if (!canvasCtx) return;
 
+    const syncDimensions = () => {
+      const parent = canvas.parentElement;
+      if (parent && parent.offsetWidth > 0 && parent.offsetHeight > 0) {
+        if (canvas.width !== parent.offsetWidth || canvas.height !== parent.offsetHeight) {
+          canvas.width = parent.offsetWidth;
+          canvas.height = parent.offsetHeight;
+        }
+      }
+    };
+    syncDimensions();
+
     analyserNode.fftSize = 256;
     const bufferLength = analyserNode.frequencyBinCount;
     const dataArray = new Uint8Array(bufferLength);
@@ -27,22 +38,22 @@ export const VisualizerCanvas: React.FC<VisualizerCanvasProps> = ({ analyserNode
 
     const draw = () => {
       animationFrameId = requestAnimationFrame(draw);
+      syncDimensions();
+
+      if (canvas.width === 0 || canvas.height === 0) return;
 
       analyserNode.getByteFrequencyData(dataArray);
-
       canvasCtx.clearRect(0, 0, canvas.width, canvas.height);
-      
+
       const barWidth = (canvas.width / bufferLength) * 1.5;
-      let barHeight;
+      let barHeight: number;
       let x = 0;
-      
+
       canvasCtx.fillStyle = isRecording ? COLORS.recording : COLORS.default;
 
       for (let i = 0; i < bufferLength; i++) {
         barHeight = (dataArray[i] / 255) * canvas.height;
-        
         canvasCtx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
-
         x += barWidth + 1;
       }
     };
@@ -54,5 +65,5 @@ export const VisualizerCanvas: React.FC<VisualizerCanvasProps> = ({ analyserNode
     };
   }, [analyserNode, isRecording]);
 
-  return <canvas ref={canvasRef} className="absolute top-0 left-0 w-full h-full" />;
+  return <canvas ref={canvasRef} className="absolute top-0 left-0 w-full h-full pointer-events-none" />;
 };

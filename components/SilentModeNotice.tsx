@@ -10,13 +10,13 @@ export const SilentModeNotice: React.FC<SilentModeNoticeProps> = ({ isOpen, onCl
   if (!isOpen) return null;
 
   return (
-    <div 
+    <div
       className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
       onClick={onClose}
       aria-modal="true"
       role="dialog"
     >
-      <div 
+      <div
         className="bg-white rounded-[2rem] shadow-2xl w-full max-w-md p-7 font-sans border border-black/5 animate-in fade-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
@@ -29,28 +29,34 @@ export const SilentModeNotice: React.FC<SilentModeNoticeProps> = ({ isOpen, onCl
           </h2>
         </div>
         <p className="text-xs text-zinc-600 font-mono tracking-widest uppercase mb-5 font-semibold">
-          Sound troubleshooting
+          Audio troubleshooting
         </p>
 
-        <div className="space-y-3.5 text-sm text-neutral-700 leading-relaxed">
-          <div className="bg-neutral-50 border border-neutral-100 rounded-2xl p-4 space-y-2">
+        <div className="space-y-3 text-sm text-neutral-700 leading-relaxed">
+          <div className="bg-neutral-50 border border-neutral-100 rounded-2xl p-4 space-y-1.5">
             <span className="block font-bold text-xs uppercase tracking-wider font-display text-black">
-              iPhone & iPad Silent Switch
+              1. iPhone & iPad Silent Mode
             </span>
             <p className="text-xs text-neutral-600 leading-relaxed">
-              On iOS devices, Web Audio is automatically muted when the physical mute switch on the side of your phone is set to <strong>Silent Mode</strong> (orange showing).
-            </p>
-            <p className="text-xs text-neutral-600 leading-relaxed">
-              Flip the hardware switch so <strong>no orange is visible</strong>, or switch off Silent Mode in your device settings / Action Button.
+              On iOS, Web Audio is automatically muted when the side switch is set to <strong>Silent Mode</strong> (orange showing) or the Control Center bell icon is active. Turn off Silent Mode to hear playback.
             </p>
           </div>
 
-          <div className="bg-neutral-50 border border-neutral-100 rounded-2xl p-4 space-y-2">
+          <div className="bg-neutral-50 border border-neutral-100 rounded-2xl p-4 space-y-1.5">
             <span className="block font-bold text-xs uppercase tracking-wider font-display text-black">
-              Media Volume & Pad Level
+              2. Volume & Bluetooth Audio
             </span>
             <p className="text-xs text-neutral-600 leading-relaxed">
-              Check that your device media volume is turned up and that the pad volume sliders are set above 0%.
+              Check that your device media volume is turned up, pad volume sliders are above 0%, and audio is not routing to connected Bluetooth headphones.
+            </p>
+          </div>
+
+          <div className="bg-neutral-50 border border-neutral-100 rounded-2xl p-4 space-y-1.5">
+            <span className="block font-bold text-xs uppercase tracking-wider font-display text-black">
+              3. Microphone Access
+            </span>
+            <p className="text-xs text-neutral-600 leading-relaxed">
+              If recording does not start, open the page directly in Safari or Chrome (not inside an app like WhatsApp) and allow microphone access in site settings.
             </p>
           </div>
         </div>
