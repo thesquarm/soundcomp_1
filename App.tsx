@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { PadState } from './types';
 import SoundPad from './components/SoundPad';
-import { PlayIcon, StopIcon, RecordIcon, AddIcon, SoundWaveIcon, DownloadIcon, SpeakerIcon } from './components/Icons';
+import { PlayIcon, StopIcon, RecordIcon, AddIcon, SoundWaveIcon, DownloadIcon, SpeakerIcon, MailIcon } from './components/Icons';
 import {
   createImpulseResponseSync,
   audioBufferToWav,
@@ -444,7 +444,7 @@ const App: React.FC = () => {
         <p className="text-xs text-zinc-600 font-mono tracking-widest uppercase text-center mt-2.5 font-bold select-none">
           A minimalist soundscape composer
         </p>
-        <div className="flex items-center justify-center gap-3 mt-3.5">
+        <div className="flex flex-wrap items-center justify-center gap-2.5 mt-3.5">
           <SoundWaveIcon className="w-10 h-10 text-zinc-400" />
           <button
             type="button"
@@ -453,9 +453,18 @@ const App: React.FC = () => {
             title="Audio & silent mode troubleshooting"
             aria-label="No sound? Audio troubleshooting guide"
           >
-            <SpeakerIcon className="w-3.5 h-3.5 text-zinc-500" />
+            <SpeakerIcon className="w-3.5 h-3.5 text-zinc-500 flex-shrink-0" />
             <span className="font-semibold">No sound?</span>
           </button>
+          <a
+            href="mailto:p.stade@mh-freiburg.de"
+            className="inline-flex items-center gap-1.5 text-xs font-mono uppercase tracking-wider text-zinc-700 hover:text-black transition-all bg-white hover:bg-gray-50 border border-black/10 shadow-xs hover:shadow-sm px-3.5 py-1.5 rounded-full active:scale-95 cursor-pointer"
+            title="Send feedback or report a problem"
+            aria-label="Enjoying the app or having problems? Email p.stade@mh-freiburg.de"
+          >
+            <MailIcon className="w-3.5 h-3.5 text-zinc-500 flex-shrink-0" />
+            <span className="font-semibold">Enjoying the app or having problems?</span>
+          </a>
         </div>
       </header>
 
@@ -597,6 +606,9 @@ const App: React.FC = () => {
           >
             Philip, p.stade@mh-freiburg.de
           </a>
+        </p>
+        <p className="mt-2 font-mono text-xs text-black/45 tracking-wider">
+          sound_compV3.5
         </p>
       </footer>
       <CookieBanner />
