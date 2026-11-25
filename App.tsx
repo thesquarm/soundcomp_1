@@ -608,7 +608,7 @@ const App: React.FC = () => {
           </a>
         </p>
         <p className="mt-2 font-mono text-xs text-black/45 tracking-wider">
-          sound_compV3.5
+          sound_compV3.6
         </p>
       </footer>
       <CookieBanner />

@@ -55,9 +55,9 @@ export const UploadIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
     </svg>
 );
 
-export const RecycleIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+export const BackspaceIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" {...props}>
-      <path d="M11.99 6V1L4 8l7.99 7v-5c5.52 0 10 4.48 10 10 0 .83-.11 1.64-.32 2.42-.9-3.04-3.78-5.42-7.18-5.42-1.09 0-2.12.24-3 .66V6h.01z"/>
+      <path d="M22 3H7c-.69 0-1.23.35-1.59.88L0 12l5.41 8.11c.36.53.9.89 1.59.89h15c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-3 12.59L17.59 17 14 13.41 10.41 17 9 15.59 12.59 12 9 8.41 10.41 7 14 10.59 17.59 7 19 8.41 15.41 12 19 15.59z" />
     </svg>
 );
 

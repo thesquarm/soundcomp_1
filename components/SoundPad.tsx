@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { PadState } from '../types';
 import { useRecorder } from '../hooks/useRecorder';
-import { PlayIcon, PauseIcon, RecordIcon, StopIcon, TrashIcon, DownloadIcon, UploadIcon, RecycleIcon } from './Icons';
+import { PlayIcon, PauseIcon, RecordIcon, StopIcon, TrashIcon, DownloadIcon, UploadIcon, BackspaceIcon } from './Icons';
 import { VisualizerCanvas } from './VisualizerCanvas';
 import { StaticWaveform } from './StaticWaveform';
 import { RangeSlider } from './RangeSlider';
@@ -692,7 +692,7 @@ const SoundPad: React.FC<SoundPadProps> = ({
                 aria-label="Clear Sound"
                 className="p-2 rounded-full hover:bg-black/10 text-neutral-600 hover:text-black transition-colors"
               >
-                <RecycleIcon className="w-4 h-4" />
+                <BackspaceIcon className="w-4 h-4" />
               </button>
             )}
 
